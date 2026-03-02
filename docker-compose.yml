@@ -1,0 +1,70 @@
+services:
+  app:
+    build:
+      context: ./
+      dockerfile: Dockerfile
+    image: distribusi-app-laravel-image
+    container_name: distribusi-app
+    networks:
+      - laravel_network
+    ports:
+      - "8889:8000"
+      - "5173:5173"
+    entrypoint: ["supervisord", "-c", "/etc/supervisor/supervisord.conf"]
+    volumes:
+      - ./docker/php/php-prod.ini:/usr/local/etc/php/php.ini
+      - ./docker/supervisor/laravel-workers-prod.conf:/etc/supervisor/conf.d/laravel-workers.conf
+      - ./backup:/var/www/backup
+      - storagedata:/var/www/storage/app
+      - geojson:/var/www/python_script/geojson
+    depends_on:
+      - db
+
+  db:
+    image: mysql:8.0
+    container_name: distribusi-app-db
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: ${DB_DATABASE}
+      MYSQL_USER: ${DB_USERNAME}
+      MYSQL_PASSWORD: ${DB_PASSWORD}
+      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD}
+    ports:
+      - "3312:3306"
+    volumes:
+      - dbdata:/var/lib/mysql
+      - ./backup:/var/www/backup
+      - ./docker/mysql/my-prod.cnf:/etc/mysql/conf.d/my.cnf:ro
+    networks:
+      - laravel_network
+    deploy:
+      resources:
+        limits:
+          memory: 20g
+
+  redis:
+    container_name: distribusi-app-redis
+    image: redis
+    command: ["redis-server", "--appendonly", "yes", "--requirepass", "${REDIS_PASSWORD}"]
+    ports:
+      - 6379:6379
+    networks:
+      - laravel_network
+
+  # redis-client:
+  #   container_name: distribusi-app-redis-client
+  #   image: redis
+  #   networks:
+  #     - laravel_network
+
+networks:
+  laravel_network:
+    driver: bridge
+
+volumes:
+  dbdata:
+    driver: local
+  storagedata:
+    driver: local
+  geojson:
+    driver: local

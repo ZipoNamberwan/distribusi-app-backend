@@ -1,0 +1,2 @@
+# Run Laravel scheduler every minute (handles all artisan schedules)
+* * * * * cd /var/www && /usr/local/bin/php artisan schedule:run > /dev/stdout 2>&1

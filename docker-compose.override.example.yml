@@ -1,0 +1,68 @@
+# Linux Dev Docker Setup
+services:
+  app:
+    volumes:
+      - .:/var/www
+      - /var/www/vendor
+      - /var/www/node_modules
+      - /var/www/bootstrap/cache
+      - /var/www/storage/logs
+      - /var/www/storage/framework
+      - ./docker/php/php-dev.ini:/usr/local/etc/php/php.ini
+      - ./docker/supervisor/laravel-workers-dev.conf:/etc/supervisor/conf.d/laravel-workers.conf
+      - ./backup:/var/www/backup
+      - storagedata:/var/www/storage/app
+    environment:
+      APP_ENV: local
+      APP_DEBUG: "true"
+      APP_LOG_LEVEL: debug
+    entrypoint:
+      - bash
+      - -c
+      - |
+        echo 'Fixing permissions...'
+        chown -R www-data:www-data /var/www/storage /var/www/bootstrap/cache /var/www/public
+        chmod -R 775 /var/www/storage /var/www/bootstrap/cache /var/www/public
+        mkdir -p /var/www/storage/logs
+        touch /var/www/storage/logs/laravel.log
+        chown www-data:www-data /var/www/storage/logs/laravel.log
+        chmod 664 /var/www/storage/logs/laravel.log
+        echo 'Starting supervisord...'
+        exec supervisord -c /etc/supervisor/supervisord.conf
+  db:
+    volumes:
+      - ./docker/mysql/my-dev.cnf:/etc/mysql/conf.d/my.cnf:ro
+    deploy:
+      resources:
+        limits:
+          memory: 8g
+
+# # Windows Dev Docker Setup (uncomment to use)
+# services:
+#   app:
+#     # Mount Laravel source code for live reload
+#     volumes:
+#       - .:/var/www
+#       - ./docker/php/php.ini:/usr/local/etc/php/php.ini
+#       - ./backup:/var/www/backup
+#       - storagedata:/var/www/storage/app
+#     environment:
+#       APP_ENV: local
+#       APP_DEBUG: "true"
+#       APP_LOG_LEVEL: debug
+#   db:
+#     deploy:
+#       resources:
+#         limits:
+#           memory: 6g
+#     entrypoint:
+#       - bash
+#       - -c
+#       - |
+#         cp /mnt/my.cnf /etc/mysql/my.cnf
+#         chmod 644 /etc/mysql/my.cnf
+#         exec docker-entrypoint.sh mysqld --defaults-extra-file=/etc/mysql/my.cnf
+#     volumes:
+#       - ./docker/mysql/my-dev.cnf:/etc/mysql/conf.d/my.cnf:ro
+#       - ./docker/mysql/my-dev.cnf:/mnt/my.cnf:ro
+
