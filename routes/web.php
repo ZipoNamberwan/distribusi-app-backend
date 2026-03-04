@@ -13,6 +13,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     Route::get('data', [DataController::class, 'index'])->name('data.index');
     Route::get('data/sheet', [DataController::class, 'readSheet'])->name('data.sheet');
+
+    Route::get('data/upload', [DataController::class, 'upload'])->name('data.upload');
+    Route::post('data/upload', [DataController::class, 'storeUpload'])->name('data.upload.store');
 });
 
 require __DIR__.'/settings.php';
