@@ -12,6 +12,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::inertia('dashboard', 'Dashboard')->name('dashboard');
 
     Route::get('data', [DataController::class, 'index'])->name('data.index');
+    Route::get('data/sheet', [DataController::class, 'readSheet'])->name('data.sheet');
 });
 
 require __DIR__.'/settings.php';

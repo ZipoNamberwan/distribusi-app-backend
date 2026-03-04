@@ -12,16 +12,13 @@ import {
 import AppLayout from '@/layouts/AppLayout.vue';
 import type { BreadcrumbItem } from '@/types';
 
-type Row = {
-    id: number;
-    code: string;
-    name: string;
-    value: string;
-    data_type: string;
+type SheetRow = Record<string, string | null> & {
+    __row?: string;
 };
 
 const props = defineProps<{
-    rows: Row[];
+    headers: string[];
+    rows: SheetRow[];
     dataTypeOptions: string[];
     filters: {
         data_type: string | null;
@@ -75,6 +72,26 @@ const onTypeChange = (value: unknown) => {
         },
     );
 };
+
+const hasDataTypeFilter = computed(() => props.dataTypeOptions.length > 0);
+
+const columns = computed(() => {
+    return props.headers.map((header) => ({
+        title: header,
+        dataIndex: header,
+        key: header,
+    }));
+});
+
+const pagination = {
+    pageSize: 20,
+    showSizeChanger: true,
+    pageSizeOptions: ['10', '20', '50', '100'],
+};
+
+const rowKey = (record: SheetRow, index: number) => {
+    return record.__row ?? String(index);
+};
 </script>
 
 <template>
@@ -89,11 +106,11 @@ const onTypeChange = (value: unknown) => {
                     <div class="space-y-1">
                         <CardTitle>Data</CardTitle>
                         <p class="text-sm text-muted-foreground">
-                            Dummy data from controller.
+                            Data loaded from Google Sheets.
                         </p>
                     </div>
 
-                    <div class="flex items-center gap-3">
+                    <div v-if="hasDataTypeFilter" class="flex items-center gap-3">
                         <span class="text-sm text-muted-foreground">
                             Filter
                         </span>
@@ -121,51 +138,15 @@ const onTypeChange = (value: unknown) => {
 
                 <CardContent class="pt-0">
                     <div class="overflow-hidden rounded-lg border border-border">
-                        <table class="w-full text-sm">
-                            <thead class="bg-muted">
-                                <tr class="text-left">
-                                    <th class="px-3 py-2 font-medium">ID</th>
-                                    <th class="px-3 py-2 font-medium">Code</th>
-                                    <th class="px-3 py-2 font-medium">Name</th>
-                                    <th class="px-3 py-2 font-medium">Value</th>
-                                    <th class="px-3 py-2 font-medium">
-                                        Data type
-                                    </th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <tr
-                                    v-for="row in rows"
-                                    :key="`${row.id}-${row.code}-${row.data_type}`"
-                                    class="border-t border-border"
-                                >
-                                    <td class="px-3 py-2 align-top">
-                                        {{ row.id }}
-                                    </td>
-                                    <td class="px-3 py-2 align-top">
-                                        {{ row.code }}
-                                    </td>
-                                    <td class="px-3 py-2 align-top">
-                                        {{ row.name }}
-                                    </td>
-                                    <td class="px-3 py-2 align-top">
-                                        {{ row.value }}
-                                    </td>
-                                    <td class="px-3 py-2 align-top">
-                                        {{ row.data_type }}
-                                    </td>
-                                </tr>
-
-                                <tr v-if="rows.length === 0">
-                                    <td
-                                        colspan="5"
-                                        class="px-3 py-10 text-center text-sm text-muted-foreground"
-                                    >
-                                        No data found.
-                                    </td>
-                                </tr>
-                            </tbody>
-                        </table>
+                        <a-table
+                            :columns="columns"
+                            :data-source="rows"
+                            :pagination="pagination"
+                            :row-key="rowKey"
+                            :scroll="{ x: 'max-content' }"
+                            bordered
+                            size="middle"
+                        />
                     </div>
                 </CardContent>
             </Card>

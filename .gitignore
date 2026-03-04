@@ -32,3 +32,5 @@ frankenphp
 frankenphp-worker.php
 
 docker-compose.override.yml
+
+/google/*

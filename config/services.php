@@ -35,4 +35,9 @@ return [
         ],
     ],
 
+    'google_sheets' => [
+        'spreadsheet_id' => env('SPREADSHEET_ID'),
+        'range' => env('SPREADSHEET_RANGE', 'INPUT!A1:AE5000'),
+    ],
+
 ];
