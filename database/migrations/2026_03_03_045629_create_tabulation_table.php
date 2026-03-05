@@ -25,12 +25,12 @@ return new class extends Migration
             $table->string('kode_prov', 8)->nullable()->index();
             $table->string('kode_kab', 16)->nullable()->index();
             $table->string('kode_kec', 8)->nullable()->index();
-            $table->string('kode_des', 16)->nullable()->index();
+            $table->string('kode_desa', 16)->nullable()->index();
 
-            $table->unsignedTinyInteger('status_kur')->nullable()->index();
-            $table->unsignedTinyInteger('jenis_ako')->nullable()->index();
-            $table->unsignedTinyInteger('kelas_ako')->nullable()->index();
-            $table->string('nama_kor')->nullable();
+            $table->unsignedTinyInteger('status_kunjungan')->nullable()->index();
+            $table->unsignedTinyInteger('jenis_akomodasi')->nullable()->index();
+            $table->unsignedTinyInteger('kelas_akomodasi')->nullable()->index();
+            $table->string('nama_komersial')->nullable();
             $table->text('alamat')->nullable();
 
             // Metric columns from this image

@@ -16,7 +16,6 @@ services:
       - ./docker/supervisor/laravel-workers-prod.conf:/etc/supervisor/conf.d/laravel-workers.conf
       - ./backup:/var/www/backup
       - storagedata:/var/www/storage/app
-      - geojson:/var/www/python_script/geojson
     depends_on:
       - db
 

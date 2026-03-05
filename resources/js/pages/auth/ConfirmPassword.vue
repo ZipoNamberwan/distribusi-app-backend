@@ -17,7 +17,7 @@ import { store } from '@/routes/password/confirm';
         <Head title="Confirm password" />
 
         <Form
-            v-bind="store.form()"
+            v-bind="store()"
             reset-on-success
             v-slot="{ errors, processing }"
         >

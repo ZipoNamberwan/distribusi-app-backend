@@ -19,7 +19,7 @@ import { store } from '@/routes/register';
         <Head title="Register" />
 
         <Form
-            v-bind="store.form()"
+            v-bind="store()"
             :reset-on-success="['password', 'password_confirmation']"
             v-slot="{ errors, processing }"
             class="flex flex-col gap-6"

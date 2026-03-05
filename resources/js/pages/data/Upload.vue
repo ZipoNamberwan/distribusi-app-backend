@@ -1,14 +1,20 @@
 <script setup lang="ts">
-import { Head, useForm } from '@inertiajs/vue3';
+import { Head, useForm, usePage } from '@inertiajs/vue3';
 import { computed } from 'vue';
+import StatusUpload from '@/custom_components/StatusUpload.vue';
 import AppLayout from '@/layouts/AppLayout.vue';
-import InputError from '@/components/InputError.vue';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Label } from '@/components/ui/label';
+import { index as dataIndex } from '@/routes/data';
+import { index as uploadIndex } from '@/routes/upload';
+import { index as storeUpload } from '@/routes/upload/store';
+import { index as downloadTemplate } from '@/routes/upload/template';
 import type { BreadcrumbItem } from '@/types';
-import { index as dataIndex, upload as uploadPage } from '@/routes/data';
-import { store as storeUpload } from '@/routes/data/upload';
+
+const page = usePage<{
+    flash: {
+        success?: string;
+        error?: string;
+    };
+}>();
 
 const breadcrumbs: BreadcrumbItem[] = [
     {
@@ -17,7 +23,7 @@ const breadcrumbs: BreadcrumbItem[] = [
     },
     {
         title: 'Upload Excel',
-        href: uploadPage().url,
+        href: uploadIndex().url,
     },
 ];
 
@@ -30,11 +36,26 @@ const canSubmit = computed(() => {
     return form.file !== null && !form.processing;
 });
 
-const onFileChange = (event: Event) => {
-    const target = event.target as HTMLInputElement | null;
-    const file = target?.files?.[0] ?? null;
+type UploadChangeInfo = {
+    file?: {
+        originFileObj?: File;
+        status?: string;
+    };
+    fileList?: Array<{ originFileObj?: File }>;
+};
 
-    form.file = file;
+const onUploadChange = (info: UploadChangeInfo) => {
+    if (!info.fileList || info.fileList.length === 0) {
+        form.file = null;
+        return;
+    }
+
+    form.file = info.fileList[0]?.originFileObj ?? null;
+};
+
+const onUploadRemove = () => {
+    form.file = null;
+    return true;
 };
 
 const submit = () => {
@@ -43,64 +64,64 @@ const submit = () => {
         preserveScroll: true,
     });
 };
+
 </script>
 
 <template>
-    <Head title="Upload Excel" />
+
+    <Head title="Upload Input Data" />
 
     <AppLayout :breadcrumbs="breadcrumbs">
         <div class="flex flex-col gap-4 rounded-xl p-4">
-            <Card>
-                <CardHeader>
-                    <CardTitle>Upload Excel Data</CardTitle>
-                    <p class="text-sm text-muted-foreground">
-                        Upload a .xlsx or .csv file and import it into the
-                        database. Rows are considered present only when Column C
-                        is not empty.
-                    </p>
-                </CardHeader>
+            <a-card title="Upload Excel Data">
+                <template #extra>
+                    <StatusUpload />
+                </template>
+                <a-typography-paragraph type="secondary" :style="{ marginTop: '-4px' }">
+                    Upload input data pada form berikut. Pastikan file yang diunggah memiliki format .xlsx atau .csv dan
+                    sesuai dengan template yang disediakan.
+                    Template file dapat diunduh pada tautan berikut:
+                    <a :href="downloadTemplate().url" target="_blank" class="text-blue-600 underline">
+                        Download Template
+                    </a>
+                </a-typography-paragraph>
 
-                <CardContent class="space-y-6">
-                    <div class="space-y-2">
-                        <Label for="target">Target table</Label>
-                        <select
-                            id="target"
-                            v-model="form.target"
-                            class="border-input dark:bg-input/30 placeholder:text-muted-foreground selection:bg-primary selection:text-primary-foreground h-9 w-full rounded-md border bg-transparent px-3 py-1 text-base shadow-xs outline-none transition-[color,box-shadow] focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] md:text-sm"
-                        >
-                            <option value="input">INPUT</option>
-                            <option value="tabulation">TABULASI</option>
-                        </select>
-                        <InputError class="mt-2" :message="form.errors.target" />
-                    </div>
+                <a-row>
+                    <a-col :xs="24" :md="12" :lg="8">
+                        <a-form layout="vertical">
+                            <a-form-item label="Target table"
+                                :validate-status="form.errors.target ? 'error' : undefined" :help="form.errors.target">
+                                <a-select v-model:value="form.target" style="width: 100%">
+                                    <a-select-option value="input">INPUT</a-select-option>
+                                    <a-select-option value="tabulation">TABULASI</a-select-option>
+                                </a-select>
+                            </a-form-item>
 
-                    <div class="space-y-2">
-                        <Label for="file">File (.xlsx or .csv)</Label>
-                        <input
-                            id="file"
-                            type="file"
-                            accept=".xlsx,.csv"
-                            class="border-input dark:bg-input/30 placeholder:text-muted-foreground selection:bg-primary selection:text-primary-foreground file:text-foreground h-9 w-full rounded-md border bg-transparent px-3 py-1 text-base shadow-xs outline-none file:inline-flex file:h-7 file:border-0 file:bg-transparent file:text-sm file:font-medium transition-[color,box-shadow] focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] md:text-sm"
-                            @change="onFileChange"
-                        />
-                        <InputError class="mt-2" :message="form.errors.file" />
-                    </div>
+                            <a-form-item label="File (.xlsx or .csv)"
+                                :validate-status="form.errors.file ? 'error' : undefined" :help="form.errors.file">
+                                <a-upload-dragger :before-upload="() => false" :max-count="1" :multiple="false"
+                                    accept=".xlsx,.csv" @change="onUploadChange" @remove="onUploadRemove">
+                                    <p class="ant-upload-text">Click or drag file to this area</p>
+                                    <p class="ant-upload-hint">Only .xlsx and .csv files are supported.</p>
+                                </a-upload-dragger>
+                            </a-form-item>
 
-                    <div class="flex items-center gap-4">
-                        <Button :disabled="!canSubmit" @click="submit">
-                            <span v-if="form.processing">Uploading…</span>
-                            <span v-else>Upload</span>
-                        </Button>
+                            <div class="flex flex-col gap-4">
+                                <a-button type="primary" :disabled="!canSubmit" :loading="form.processing"
+                                    @click="submit">
+                                    Upload
+                                </a-button>
 
-                        <p
-                            v-show="form.recentlySuccessful"
-                            class="text-sm text-muted-foreground"
-                        >
-                            Imported.
-                        </p>
-                    </div>
-                </CardContent>
-            </Card>
+                                <a-alert v-if="page.props.flash?.success" type="success" show-icon
+                                    :message="page.props.flash.success" closable />
+
+                                <a-alert v-if="page.props.flash?.error" type="error" show-icon
+                                    :message="page.props.flash.error" closable />
+                            </div>
+                        </a-form>
+                    </a-col>
+                </a-row>
+            </a-card>
         </div>
     </AppLayout>
 </template>

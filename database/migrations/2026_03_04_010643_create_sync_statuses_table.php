@@ -13,6 +13,8 @@ return new class extends Migration
     {
         Schema::create('sync_statuses', function (Blueprint $table) {
             $table->uuid('id')->primary();
+            $table->foreignUuid('user_id')->constrained('users');
+            $table->string('filename');
             $table->enum('status', ['start', 'loading', 'success', 'failed', 'success with error']);
             $table->text('message')->nullable();
             $table->timestamps();

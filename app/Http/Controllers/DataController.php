@@ -2,16 +2,14 @@
 
 namespace App\Http\Controllers;
 
+use Illuminate\Http\Request;
 use App\Models\Input;
 use App\Models\Tabulation;
 use App\Services\GoogleSheetService;
+use Exception;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Http\RedirectResponse;
-use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
-use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -72,46 +70,6 @@ class DataController extends Controller
         $data = $sheet->read($spreadsheetId, $range);
 
         return response()->json($data);
-    }
-
-    public function upload(): Response
-    {
-        return Inertia::render('data/Upload');
-    }
-
-    public function storeUpload(Request $request): RedirectResponse
-    {
-        $validated = $request->validate([
-            'target' => ['required', Rule::in(['input', 'tabulation'])],
-            'file' => ['required', 'file', 'mimes:xlsx,csv'],
-        ]);
-
-        /** @var \Illuminate\Http\UploadedFile|null $file */
-        $file = $request->file('file');
-        if ($file === null) {
-            throw ValidationException::withMessages([
-                'file' => 'File is required.',
-            ]);
-        }
-
-        $values = $this->readUploadValues($file->getRealPath());
-        $headers = $this->headersFromSheetValues($values);
-        $rows = $this->rowsFromSheetValues($values, $headers);
-        $rows = $this->filterCompleteRows($rows, $headers);
-
-        $target = (string) $validated['target'];
-
-        DB::transaction(function () use ($target, $rows, $headers) {
-            if ($target === 'input') {
-                $this->importInputRows($rows, $headers);
-
-                return;
-            }
-
-            $this->importTabulationRows($rows, $headers);
-        });
-
-        return back(303);
     }
 
     /**

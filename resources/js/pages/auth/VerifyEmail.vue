@@ -28,7 +28,7 @@ defineProps<{
         </div>
 
         <Form
-            v-bind="send.form()"
+            v-bind="send()"
             class="space-y-6 text-center"
             v-slot="{ processing }"
         >

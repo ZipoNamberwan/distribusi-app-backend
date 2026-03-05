@@ -1,8 +1,8 @@
 import { createInertiaApp } from '@inertiajs/vue3';
+import Antd from 'ant-design-vue';
 import { resolvePageComponent } from 'laravel-vite-plugin/inertia-helpers';
 import type { DefineComponent } from 'vue';
 import { createApp, h } from 'vue';
-import Antd from 'ant-design-vue';
 import '../css/app.css';
 import 'ant-design-vue/dist/reset.css';
 import { initializeTheme } from '@/composables/useAppearance';
