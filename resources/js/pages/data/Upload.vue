@@ -1,13 +1,14 @@
 <script setup lang="ts">
 import { Head, useForm, usePage } from '@inertiajs/vue3';
 import { computed } from 'vue';
-import StatusUpload from '@/custom_components/StatusUpload.vue';
 import AppLayout from '@/layouts/AppLayout.vue';
 import { index as dataIndex } from '@/routes/data';
 import { index as uploadIndex } from '@/routes/upload';
 import { index as storeUpload } from '@/routes/upload/store';
 import { index as downloadTemplate } from '@/routes/upload/template';
 import type { BreadcrumbItem } from '@/types';
+import StatusUploadComponent from '@/custom_components/StatusUploadComponent.vue';
+import RawDataComponent from '@/custom_components/RawDataComponent.vue';
 
 const page = usePage<{
     flash: {
@@ -73,36 +74,46 @@ const submit = () => {
 
     <AppLayout :breadcrumbs="breadcrumbs">
         <div class="flex flex-col gap-4 rounded-xl p-4">
-            <a-card title="Upload Excel Data">
-                <template #extra>
-                    <StatusUpload />
-                </template>
-                <a-typography-paragraph type="secondary" :style="{ marginTop: '-4px' }">
-                    Upload input data pada form berikut. Pastikan file yang diunggah memiliki format .xlsx atau .csv dan
-                    sesuai dengan template yang disediakan.
-                    Template file dapat diunduh pada tautan berikut:
-                    <a :href="downloadTemplate().url" target="_blank" class="text-blue-600 underline">
-                        Download Template
-                    </a>
-                </a-typography-paragraph>
-
-                <a-row>
-                    <a-col :xs="24" :md="12" :lg="8">
+            <a-row :gutter="[16, 16]">
+                <a-col :xs="24" :sm="12">
+                    <a-card size="small">
+                        <div class="flex items-center justify-between gap-4">
+                            <div>
+                                <p class="font-semibold">Raw Data</p>
+                                <p class="text-muted-foreground text-sm">Lihat raw data yang sudah terupload</p>
+                            </div>
+                            <RawDataComponent />
+                        </div>
+                    </a-card>
+                </a-col>
+                <a-col :xs="24" :sm="12">
+                    <a-card size="small">
+                        <div class="flex items-center justify-between gap-4">
+                            <div>
+                                <p class="font-semibold">Status Upload</p>
+                                <p class="text-muted-foreground text-sm">Pantau riwayat upload file</p>
+                            </div>
+                            <StatusUploadComponent />
+                        </div>
+                    </a-card>
+                </a-col>
+                <a-col :xs="24" :sm="24">
+                    <a-card title="Upload Excel Data">
+                        <a-typography-paragraph type="secondary" :style="{ marginTop: '-4px' }">
+                            Upload input data pada form berikut. Pastikan file yang diunggah memiliki format .xlsx dan
+                            sesuai dengan template yang disediakan.
+                            Template file dapat diunduh pada tautan berikut:
+                            <a :href="downloadTemplate().url" target="_blank" class="text-blue-600 underline">
+                                Download Template
+                            </a>
+                        </a-typography-paragraph>
                         <a-form layout="vertical">
-                            <a-form-item label="Target table"
-                                :validate-status="form.errors.target ? 'error' : undefined" :help="form.errors.target">
-                                <a-select v-model:value="form.target" style="width: 100%">
-                                    <a-select-option value="input">INPUT</a-select-option>
-                                    <a-select-option value="tabulation">TABULASI</a-select-option>
-                                </a-select>
-                            </a-form-item>
-
-                            <a-form-item label="File (.xlsx or .csv)"
-                                :validate-status="form.errors.file ? 'error' : undefined" :help="form.errors.file">
+                            <a-form-item label="File (.xlsx)" :validate-status="form.errors.file ? 'error' : undefined"
+                                :help="form.errors.file">
                                 <a-upload-dragger :before-upload="() => false" :max-count="1" :multiple="false"
-                                    accept=".xlsx,.csv" @change="onUploadChange" @remove="onUploadRemove">
+                                    accept=".xlsx" @change="onUploadChange" @remove="onUploadRemove">
                                     <p class="ant-upload-text">Click or drag file to this area</p>
-                                    <p class="ant-upload-hint">Only .xlsx and .csv files are supported.</p>
+                                    <p class="ant-upload-hint">Only .xlsx files are supported.</p>
                                 </a-upload-dragger>
                             </a-form-item>
 
@@ -119,9 +130,11 @@ const submit = () => {
                                     :message="page.props.flash.error" closable />
                             </div>
                         </a-form>
-                    </a-col>
-                </a-row>
-            </a-card>
+                    </a-card>
+                </a-col>
+            </a-row>
+
+
         </div>
     </AppLayout>
 </template>

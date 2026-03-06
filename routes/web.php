@@ -18,6 +18,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('upload', [UploadController::class, 'showUploadForm'])->name('upload.index');
     Route::get('template', [UploadController::class, 'downloadInputTemplate'])->name('upload.template.index');
     Route::post('upload', [UploadController::class, 'storeUpload'])->name('upload.store.index');
+    Route::post('download', [UploadController::class, 'downloadFile'])->name('upload.file.download');
     Route::get('upload/status/data', [UploadController::class, 'getUploadStatusData'])->name('upload.status.index');
 
 });

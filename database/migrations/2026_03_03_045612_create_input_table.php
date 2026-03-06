@@ -35,10 +35,6 @@ return new class extends Migration
             $table->unsignedInteger('bed')->default(0);
             $table->unsignedInteger('room_yesterday')->default(0);
             $table->unsignedInteger('room_in')->default(0);
-
-            $table->string('kode_kab', 16)->index();
-            $table->unsignedTinyInteger('day')->nullable()->index();
-
             $table->unsignedInteger('room_out')->default(0);
 
             $table->unsignedInteger('wna_yesterday')->default(0);
@@ -52,8 +48,9 @@ return new class extends Migration
 
             $table->string('status', 32)->nullable()->index();
 
-            $table->unsignedInteger('room_per')->default(0);
+            $table->unsignedInteger('room_per_day')->default(0);
             $table->unsignedInteger('bed_per_day')->default(0);
+            $table->unsignedInteger('day')->default(0);
 
             $table->timestamps();
         });
