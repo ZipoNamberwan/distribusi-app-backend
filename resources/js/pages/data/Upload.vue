@@ -13,9 +13,26 @@ import RawDataComponent from '@/custom_components/RawDataComponent.vue';
 const page = usePage();
 
 const props = defineProps({
-    months: Array,
-    years: Array,
-    statuses: Array,
+    months: {
+        type: Array,
+        required: true,
+        default: () => []
+    },
+    years: {
+        type: Array,
+        required: true,
+        default: () => []
+    },
+    statuses: {
+        type: Array,
+        required: true,
+        default: () => []
+    },
+    regencies: {
+        type: Array,
+        required: true,
+        default: () => []
+    },
 });
 
 const breadcrumbs = [
@@ -80,17 +97,17 @@ const submit = () => {
 };
 
 watch(
-  () => page.props.flash,
-  (flash) => {
-    if (flash.success) {
-      message.success(flash.success, 5)
-    }
+    () => page.props.flash,
+    (flash) => {
+        if (flash.success) {
+            message.success(flash.success, 5)
+        }
 
-    if (flash.error) {
-      message.error(flash.error, 5)
-    }
-  },
-  { immediate: true }
+        if (flash.error) {
+            message.error(flash.error, 5)
+        }
+    },
+    { immediate: true }
 )
 </script>
 
@@ -108,7 +125,7 @@ watch(
                                 <p class="font-semibold">Raw Data</p>
                                 <p class="text-muted-foreground text-sm">Lihat raw data yang sudah terupload</p>
                             </div>
-                            <RawDataComponent />
+                            <RawDataComponent :regencies="props.regencies" :months="props.months" :years="props.years" />
                         </div>
                     </a-card>
                 </a-col>
@@ -123,7 +140,7 @@ watch(
                         </div>
                     </a-card>
                 </a-col>
-                <a-col :xs="24" :sm="24">
+                <a-col :xs="24" :sm="24"> 
                     <a-card title="Upload Excel Data">
                         <a-typography-paragraph type="secondary" :style="{ marginTop: '-4px' }">
                             Upload input data pada form berikut. Pastikan file yang diunggah memiliki format .xlsx dan
@@ -133,7 +150,7 @@ watch(
                                 Download Template
                             </a>
                         </a-typography-paragraph>
-                        <a-form layout="vertical" :label-col="{ span: 3 }" :wrapper-col="{ span: 8 }" :model="form"
+                        <a-form layout="vertical" :label-col="{ span: 3 }" :wrapper-col="{ span: 6 }" :model="form"
                             :rules="rules" ref="formRef">
                             <a-form-item name="month" label="Bulan"
                                 :validate-status="form.errors.month ? 'error' : undefined" :help="form.errors.month">
@@ -153,7 +170,7 @@ watch(
                                 </a-select>
                             </a-form-item>
 
-                            <a-form-item name="file" label="File (.xlsx)" :wrapper-col="{ span: 12 }"
+                            <a-form-item name="file" label="File (.xlsx)" :wrapper-col="{ span: 6 }"
                                 :validate-status="form.errors.file ? 'error' : undefined" :help="form.errors.file">
                                 <a-upload-dragger :before-upload="() => false" :max-count="1" :multiple="false"
                                     accept=".xlsx" @change="onUploadChange" @remove="onUploadRemove">
@@ -162,14 +179,14 @@ watch(
                                 </a-upload-dragger>
                             </a-form-item>
 
-                            <a-form-item :wrapper-col="{ offset: 0, span: 16 }">
+                            <a-form-item :wrapper-col="{ offset: 0, span: 12 }">
                                 <div class="flex flex-col gap-3">
                                     <div>
                                         <a-button type="primary" :loading="form.processing" @click="submit">
                                             Upload
                                         </a-button>
                                     </div>
-                                    
+
                                     <a-alert v-if="page.props.flash?.success" type="success" show-icon
                                         :message="page.props.flash.success" closable />
                                     <a-alert v-if="page.props.flash?.error" type="error" show-icon

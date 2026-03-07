@@ -13,7 +13,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::inertia('dashboard', 'Dashboard')->name('dashboard');
 
     Route::get('data', [DataController::class, 'index'])->name('data.index');
-    Route::get('data/sheet', [DataController::class, 'readSheet'])->name('data.sheet');
+    Route::get('data/input', [DataController::class, 'getInputData'])->name('data.raw.index');
 
     Route::get('upload', [UploadController::class, 'showUploadForm'])->name('upload.index');
     Route::get('template', [UploadController::class, 'downloadInputTemplate'])->name('upload.template.index');

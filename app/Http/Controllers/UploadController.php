@@ -7,6 +7,7 @@ use App\Models\Month;
 use App\Models\SyncStatus;
 use App\Models\User;
 use App\Models\Year;
+use App\Models\Regency;
 use Exception;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -22,7 +23,9 @@ class UploadController extends Controller
     public function showUploadForm(): Response
     {
         $months = Month::all();
-        $years = Year::all();
+        $currentYear = now()->year;
+        $years = Year::whereIn('name', [$currentYear, $currentYear - 1])->orderByDesc('name')->get();
+
         $statuses = [
             ['title' => 'Start', 'value' => 'start', 'color' => 'default'],
             ['title' => 'Loading', 'value' => 'loading', 'color' => 'processing'],
@@ -30,11 +33,13 @@ class UploadController extends Controller
             ['title' => 'Failed', 'value' => 'failed', 'color' => 'error'],
             ['title' => 'Success with Error', 'value' => 'success with error', 'color' => 'warning'],
         ];
+        $regencies = Regency::all();
 
         return Inertia::render('data/Upload', [
             'months' => $months,
             'years' => $years,
             'statuses' => $statuses,
+            'regencies' => $regencies
         ]);
     }
 

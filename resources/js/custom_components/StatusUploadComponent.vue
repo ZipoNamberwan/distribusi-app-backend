@@ -9,7 +9,11 @@ const open = ref(false);
 const lastParams = ref({});
 
 const props = defineProps({
-    statuses: Array,
+    statuses: {
+        type: Array,
+        required: true,
+        default: () => []
+    }
 });
 
 const statusMap = computed(() =>
