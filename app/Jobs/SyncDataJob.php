@@ -2,7 +2,9 @@
 
 namespace App\Jobs;
 
+use App\Exceptions\ImportException;
 use App\Models\Input;
+use App\Models\Regency;
 use App\Models\SyncStatus;
 use App\Models\Tabulation;
 use App\Services\GoogleSheetService;
@@ -34,7 +36,8 @@ class SyncDataJob implements ShouldQueue
         // update status to loading immediately to reflect in UI
         $this->status->update([
             'status' => 'loading',
-            'message' => 'Sync process started',
+            'system_message' => 'Sync process started',
+            'user_message' => 'Sync process started',
         ]);
     }
 
@@ -47,39 +50,59 @@ class SyncDataJob implements ShouldQueue
 
         try {
             if ($syncStatus->filename === null || trim((string) $syncStatus->filename) === '') {
-                throw new RuntimeException('Missing filename for sync status');
+                throw new ImportException('Missing filename for sync status', 'File configuration missing');
+            }
+
+            $defaultUserId = (string) ($syncStatus->user_id ?? '');
+            if (trim($defaultUserId) === '') {
+                throw new ImportException('Missing user_id for sync status', 'User configuration missing');
             }
 
             $relativePath = 'uploads/'.ltrim((string) $syncStatus->filename, '/');
 
             $extension = Str::lower((string) Str::of($syncStatus->filename)->afterLast('.'));
             if (! in_array($extension, ['csv', 'xlsx'], true)) {
-                throw new RuntimeException('Uploaded file must be a .csv or .xlsx');
+                throw new ImportException('Uploaded file must be a .csv or .xlsx', 'Uploaded file must be .csv or .xlsx');
             }
 
             $imported = match ($extension) {
-                'csv' => $this->importInputCsvFromStorage($relativePath),
-                'xlsx' => $this->importInputXlsxFromStorage($relativePath),
+                'csv' => $this->importInputCsvFromStorage($relativePath, $syncStatus),
+                'xlsx' => $this->importInputXlsxFromStorage($relativePath, $syncStatus),
             };
+
+            Input::where('bulan', $syncStatus->month_id)
+                ->where('tahun', $syncStatus->year_id)
+                ->where('sync_status_id', '!=', (string) $syncStatus->id)
+                ->delete();
 
             $syncStatus->update([
                 'status' => 'success',
-                'message' => "Imported {$imported} rows",
+                'system_message' => "Imported {$imported} rows",
+                'user_message' => "Imported {$imported} rows",
             ]);
+        } catch (ImportException $e) {
+            $syncStatus->update([
+                'status' => 'failed',
+                'system_message' => substr($e->getMessage(), 0, 1000),
+                'user_message' => $e->getUserMessage(),
+            ]);
+
+            throw $e;
         } catch (Throwable $e) {
             $syncStatus->update([
                 'status' => 'failed',
-                'message' => substr($e->getMessage(), 0, 1000),
+                'system_message' => substr($e->getMessage(), 0, 1000),
+                'user_message' => 'An unexpected error occurred',
             ]);
 
             throw $e;
         }
     }
 
-    private function importInputCsvFromStorage(string $relativePath): int
+    private function importInputCsvFromStorage(string $relativePath, SyncStatus $syncStatus): int
     {
         if (! Storage::disk('local')->exists($relativePath)) {
-            throw new RuntimeException("CSV file not found: {$relativePath}");
+            throw new ImportException("CSV file not found: {$relativePath}", 'Uploaded file could not be found');
         }
 
         $absolutePath = Storage::disk('local')->path($relativePath);
@@ -91,14 +114,14 @@ class SyncDataJob implements ShouldQueue
 
         $rawHeaders = $file->fgetcsv();
         if (! is_array($rawHeaders) || $rawHeaders === [null] || $rawHeaders === []) {
-            throw new RuntimeException('CSV header row is missing');
+            throw new ImportException('CSV header row is missing', 'File has no header row');
         }
 
         $headers = array_map([$this, 'normalizeHeader'], $rawHeaders);
 
         $allowedColumns = array_values(array_diff(
             Schema::getColumnListing('input'),
-            ['id', 'created_at', 'updated_at']
+            ['id', 'created_at', 'updated_at', 'tahun', 'bulan', 'sync_status_id']
         ));
         $allowedLookup = array_fill_keys($allowedColumns, true);
 
@@ -121,12 +144,15 @@ class SyncDataJob implements ShouldQueue
         }
 
         if ($columnMap === []) {
-            throw new RuntimeException('No matching columns found between CSV headers and input table');
+            throw new ImportException('No matching columns found between CSV headers and input table', 'File headers do not match the expected format');
         }
 
+        $maps = $this->buildInputForeignKeyMaps();
+        $indexes = $this->requiredInputForeignKeyIndexes($columnMap);
+
+        $this->validateInputForeignKeysInCsv($file, $columnMap, $indexes, $maps);
+
         $nullableIntegers = [
-            'tahun',
-            'bulan',
             'status_kunjungan',
             'jenis_akomodasi',
             'kelas_akomodasi',
@@ -148,22 +174,45 @@ class SyncDataJob implements ShouldQueue
             'day',
         ];
 
-        Input::query()->truncate();
+        // Build a canonical template so every record has identical keys for batch insert.
+        $emptyRecord = array_fill_keys(array_values($columnMap), null);
+        foreach ($defaultZeroIntegers as $col) {
+            if (array_key_exists($col, $emptyRecord)) {
+                $emptyRecord[$col] = 0;
+            }
+        }
+        // Ensure tahun, bulan, sync_status_id are always present regardless of file headers.
+        $emptyRecord['tahun'] = null;
+        $emptyRecord['bulan'] = null;
+        $emptyRecord['sync_status_id'] = null;
+
+        // Rewind to start inserting (skip header row)
+        $file->rewind();
+        $file->fgetcsv();
 
         $insertBatchSize = 500;
         $buffer = [];
         $imported = 0;
 
+        $fkCodeColumns = ['kode_kab' => true];
+
+        $rowNumber = 1;
+
         foreach ($file as $row) {
+            $rowNumber++;
+
             if (! is_array($row) || $row === [null]) {
                 continue;
             }
 
-            $record = [
+            $record = array_merge($emptyRecord, [
                 'id' => (string) Str::uuid(),
                 'created_at' => now(),
                 'updated_at' => now(),
-            ];
+                'tahun' => $syncStatus->year_id,
+                'bulan' => $syncStatus->month_id,
+                'sync_status_id' => (string) $syncStatus->id,
+            ]);
 
             $hasAnyValue = false;
 
@@ -182,6 +231,12 @@ class SyncDataJob implements ShouldQueue
 
                 if ($column === 'tanggal_update') {
                     $record[$column] = $this->parseDate($value);
+
+                    continue;
+                }
+
+                if (isset($fkCodeColumns[$column])) {
+                    $record[$column] = $value;
 
                     continue;
                 }
@@ -205,6 +260,12 @@ class SyncDataJob implements ShouldQueue
                 continue;
             }
 
+            if (! isset($record['user_id']) || trim((string) $record['user_id']) === '') {
+                $record['user_id'] = (string) $syncStatus->user_id;
+            }
+
+            $record = $this->resolveInputForeignKeysOrThrow($record, $maps, 'CSV row '.$rowNumber);
+
             $buffer[] = $record;
 
             if (count($buffer) >= $insertBatchSize) {
@@ -222,10 +283,10 @@ class SyncDataJob implements ShouldQueue
         return $imported;
     }
 
-    private function importInputXlsxFromStorage(string $relativePath): int
+    private function importInputXlsxFromStorage(string $relativePath, SyncStatus $syncStatus): int
     {
         if (! Storage::disk('local')->exists($relativePath)) {
-            throw new RuntimeException("XLSX file not found: {$relativePath}");
+            throw new ImportException("XLSX file not found: {$relativePath}", 'Uploaded file could not be found');
         }
 
         $absolutePath = Storage::disk('local')->path($relativePath);
@@ -235,27 +296,27 @@ class SyncDataJob implements ShouldQueue
         $info = $reader->listWorksheetInfo($absolutePath);
         $first = $info[0] ?? null;
         if (! is_array($first)) {
-            throw new RuntimeException('Unable to read XLSX metadata');
+            throw new ImportException('Unable to read XLSX metadata', 'Could not read the uploaded file');
         }
 
         $totalRows = (int) ($first['totalRows'] ?? 0);
         $totalColumns = (int) ($first['totalColumns'] ?? 0);
 
         if ($totalRows < 1 || $totalColumns < 1) {
-            throw new RuntimeException('XLSX appears to be empty');
+            throw new ImportException('XLSX appears to be empty', 'The uploaded file is empty');
         }
 
         $headersRow = $this->readXlsxRows($reader, $absolutePath, 1, 1);
         $rawHeaders = $headersRow[0] ?? [];
         if (! is_array($rawHeaders) || $rawHeaders === []) {
-            throw new RuntimeException('XLSX header row is missing');
+            throw new ImportException('XLSX header row is missing', 'File has no header row');
         }
 
         $headers = array_map([$this, 'normalizeHeader'], array_map(fn ($v) => $this->stringifyCellValue($v), $rawHeaders));
 
         $allowedColumns = array_values(array_diff(
             Schema::getColumnListing('input'),
-            ['id', 'created_at', 'updated_at']
+            ['id', 'created_at', 'updated_at', 'tahun', 'bulan', 'sync_status_id']
         ));
         $allowedLookup = array_fill_keys($allowedColumns, true);
 
@@ -278,12 +339,15 @@ class SyncDataJob implements ShouldQueue
         }
 
         if ($columnMap === []) {
-            throw new RuntimeException('No matching columns found between XLSX headers and input table');
+            throw new ImportException('No matching columns found between XLSX headers and input table', 'File headers do not match the expected format');
         }
 
+        $maps = $this->buildInputForeignKeyMaps();
+        $indexes = $this->requiredInputForeignKeyIndexes($columnMap);
+
+        $this->validateInputForeignKeysInXlsx($reader, $absolutePath, $totalRows, $columnMap, $indexes, $maps);
+
         $nullableIntegers = [
-            'tahun',
-            'bulan',
             'status_kunjungan',
             'jenis_akomodasi',
             'kelas_akomodasi',
@@ -305,11 +369,23 @@ class SyncDataJob implements ShouldQueue
             'day',
         ];
 
-        Input::query()->truncate();
+        // Build a canonical template so every record has identical keys for batch insert.
+        $emptyRecord = array_fill_keys(array_values($columnMap), null);
+        foreach ($defaultZeroIntegers as $col) {
+            if (array_key_exists($col, $emptyRecord)) {
+                $emptyRecord[$col] = 0;
+            }
+        }
+        // Ensure tahun, bulan, sync_status_id are always present regardless of file headers.
+        $emptyRecord['tahun'] = null;
+        $emptyRecord['bulan'] = null;
+        $emptyRecord['sync_status_id'] = null;
 
         $insertBatchSize = 500;
         $buffer = [];
         $imported = 0;
+
+        $fkCodeColumns = ['kode_kab' => true];
 
         $chunkSize = 1000;
         $start = 2;
@@ -318,16 +394,21 @@ class SyncDataJob implements ShouldQueue
             $end = min($totalRows, $start + $chunkSize - 1);
             $rows = $this->readXlsxRows($reader, $absolutePath, $start, $end);
 
-            foreach ($rows as $row) {
+            foreach ($rows as $offset => $row) {
                 if (! is_array($row) || $row === []) {
                     continue;
                 }
 
-                $record = [
+                $rowNumber = $start + $offset;
+
+                $record = array_merge($emptyRecord, [
                     'id' => (string) Str::uuid(),
                     'created_at' => now(),
                     'updated_at' => now(),
-                ];
+                    'tahun' => $syncStatus->year_id,
+                    'bulan' => $syncStatus->month_id,
+                    'sync_status_id' => (string) $syncStatus->id,
+                ]);
 
                 $hasAnyValue = false;
 
@@ -353,6 +434,12 @@ class SyncDataJob implements ShouldQueue
 
                     $hasAnyValue = true;
 
+                    if (isset($fkCodeColumns[$column])) {
+                        $record[$column] = $string;
+
+                        continue;
+                    }
+
                     if (in_array($column, $nullableIntegers, true)) {
                         $record[$column] = is_numeric($string) ? (int) $string : null;
 
@@ -372,6 +459,12 @@ class SyncDataJob implements ShouldQueue
                     continue;
                 }
 
+                if (! isset($record['user_id']) || trim((string) $record['user_id']) === '') {
+                    $record['user_id'] = (string) $syncStatus->user_id;
+                }
+
+                $record = $this->resolveInputForeignKeysOrThrow($record, $maps, 'XLSX row '.$rowNumber);
+
                 $buffer[] = $record;
 
                 if (count($buffer) >= $insertBatchSize) {
@@ -390,6 +483,227 @@ class SyncDataJob implements ShouldQueue
         }
 
         return $imported;
+    }
+
+    /**
+     * @return array{regencies: array<string, int>}
+     */
+    private function buildInputForeignKeyMaps(): array
+    {
+        /** @var array<string, int> $regencies */
+        $regencies = Regency::query()->pluck('id', 'short_code')->all();
+
+        return [
+            'regencies' => $regencies,
+        ];
+    }
+
+    /**
+     * @param  array<int, string>  $columnMap
+     * @return array{kode_kab: int}
+     */
+    private function requiredInputForeignKeyIndexes(array $columnMap): array
+    {
+        $indexesByColumn = array_flip($columnMap);
+
+        if (! array_key_exists('kode_kab', $indexesByColumn)) {
+            throw new ImportException("Missing required column 'kode_kab' in file headers", "File is missing the required 'kode_kab' column");
+        }
+
+        return [
+            'kode_kab' => (int) $indexesByColumn['kode_kab'],
+        ];
+    }
+
+    /**
+     * @param  array<int, string>  $columnMap
+     * @param  array{kode_kab: int}  $indexes
+     * @param  array{regencies: array<string, int>}  $maps
+     */
+    private function validateInputForeignKeysInCsv(SplFileObject $file, array $columnMap, array $indexes, array $maps): void
+    {
+        $missingRegencies = [];
+
+        $file->rewind();
+        $file->fgetcsv();
+
+        $rowNumber = 1;
+        foreach ($file as $row) {
+            $rowNumber++;
+
+            if (! is_array($row) || $row === [null]) {
+                continue;
+            }
+
+            $hasAnyValue = false;
+            foreach ($columnMap as $index => $column) {
+                $value = $row[$index] ?? null;
+                if ($value === null) {
+                    continue;
+                }
+
+                $string = trim((string) $value);
+                if ($string === '') {
+                    continue;
+                }
+
+                $hasAnyValue = true;
+                break;
+            }
+
+            if (! $hasAnyValue) {
+                continue;
+            }
+
+            $kodeKab = trim((string) ($row[$indexes['kode_kab']] ?? ''));
+
+            if ($kodeKab === '') {
+                throw new ImportException('Missing kode_kab at CSV row '.$rowNumber, 'Error at row '.$rowNumber);
+            }
+
+            if ($this->resolveRegencyId($kodeKab, $maps['regencies']) === null) {
+                $missingRegencies[$kodeKab] = true;
+            }
+        }
+
+        $this->throwIfMissingForeignKeys($missingRegencies);
+    }
+
+    /**
+     * @param  array<int, string>  $columnMap
+     * @param  array{kode_kab: int}  $indexes
+     * @param  array{regencies: array<string, int>}  $maps
+     */
+    private function validateInputForeignKeysInXlsx(Xlsx $reader, string $absolutePath, int $totalRows, array $columnMap, array $indexes, array $maps): void
+    {
+        $missingRegencies = [];
+
+        $chunkSize = 1000;
+        $start = 2;
+
+        while ($start <= $totalRows) {
+            $end = min($totalRows, $start + $chunkSize - 1);
+            $rows = $this->readXlsxRows($reader, $absolutePath, $start, $end);
+
+            foreach ($rows as $offset => $row) {
+                if (! is_array($row) || $row === []) {
+                    continue;
+                }
+
+                $rowNumber = $start + $offset;
+
+                $hasAnyValue = false;
+                foreach ($columnMap as $index => $column) {
+                    $value = $row[$index] ?? null;
+                    if ($value === null) {
+                        continue;
+                    }
+
+                    if ($column === 'tanggal_update') {
+                        $parsed = $this->parseExcelDate($value);
+                        if ($parsed !== null) {
+                            $hasAnyValue = true;
+                            break;
+                        }
+
+                        continue;
+                    }
+
+                    $string = trim($this->stringifyCellValue($value));
+                    if ($string === '') {
+                        continue;
+                    }
+
+                    $hasAnyValue = true;
+                    break;
+                }
+
+                if (! $hasAnyValue) {
+                    continue;
+                }
+
+                $kodeKab = trim($this->stringifyCellValue($row[$indexes['kode_kab']] ?? ''));
+
+                if ($kodeKab === '') {
+                    throw new ImportException('Missing kode_kab at XLSX row '.$rowNumber, 'Error at row '.$rowNumber);
+                }
+
+                if ($this->resolveRegencyId($kodeKab, $maps['regencies']) === null) {
+                    $missingRegencies[$kodeKab] = true;
+                }
+            }
+
+            $start = $end + 1;
+        }
+
+        $this->throwIfMissingForeignKeys($missingRegencies);
+    }
+
+    /**
+     * @param  array<string, bool>  $missingRegencies
+     */
+    private function throwIfMissingForeignKeys(array $missingRegencies): void
+    {
+        if ($missingRegencies === []) {
+            return;
+        }
+
+        $parts = [];
+
+        if ($missingRegencies !== []) {
+            $codes = array_slice(array_keys($missingRegencies), 0, 25);
+            $parts[] = 'Unknown kode_kab short_codes: '.implode(', ', $codes);
+        }
+
+        throw new ImportException(implode(' | ', $parts), 'File contains references not found in the database');
+    }
+
+    /**
+     * @param  array{regencies: array<string, int>}  $maps
+     */
+    private function resolveInputForeignKeysOrThrow(array $record, array $maps, string $rowRef): array
+    {
+        $kodeKabCode = trim((string) ($record['kode_kab'] ?? ''));
+
+        preg_match('/\d+$/', $rowRef, $rowMatch);
+        $rowUserMessage = isset($rowMatch[0]) ? 'Error at row '.$rowMatch[0] : 'Error during import';
+
+        if ($kodeKabCode === '') {
+            throw new ImportException("Missing kode_kab at {$rowRef}", $rowUserMessage);
+        }
+
+        $kodeKabId = $this->resolveRegencyId($kodeKabCode, $maps['regencies']);
+        if ($kodeKabId === null) {
+            throw new ImportException("Unknown kode_kab short_code '{$kodeKabCode}' at {$rowRef}", $rowUserMessage);
+        }
+
+        $record['kode_kab'] = $kodeKabId;
+
+        return $record;
+    }
+
+    /**
+     * @param  array<string, int>  $map
+     */
+    private function resolveRegencyId(string $shortCode, array $map): ?int
+    {
+        $shortCode = trim($shortCode);
+        if ($shortCode === '') {
+            return null;
+        }
+
+        $tries = [$shortCode];
+        if (is_numeric($shortCode)) {
+            $tries[] = (string) ((int) $shortCode);
+        }
+
+        foreach (array_values(array_unique($tries)) as $try) {
+            if (isset($map[$try])) {
+                return (int) $map[$try];
+            }
+        }
+
+        return null;
     }
 
     /**

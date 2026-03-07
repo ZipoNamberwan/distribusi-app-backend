@@ -15,4 +15,14 @@ class SyncStatus extends Model
     public $incrementing = false;
 
     protected $guarded = [];
+
+    public function year()
+    {
+        return $this->belongsTo(Year::class, 'year_id');
+    }
+
+    public function month()
+    {
+        return $this->belongsTo(Month::class, 'month_id');
+    }
 }

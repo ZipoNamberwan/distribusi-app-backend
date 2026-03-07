@@ -18,10 +18,11 @@ return new class extends Migration
             $table->string('tarikan_ke', 32)->nullable();
             $table->string('idunik', 64)->nullable()->index();
 
-            $table->unsignedSmallInteger('tahun')->nullable()->index();
-            $table->unsignedTinyInteger('bulan')->nullable()->index();
+            $table->foreignId('tahun')->constrained('years');
+            $table->foreignId('bulan')->constrained('months');
 
             $table->string('kode_prov', 8)->nullable()->index();
+            $table->foreignId('kode_kab')->constrained('regencies');
             $table->string('kode_kec', 8)->nullable()->index();
             $table->string('kode_desa', 16)->nullable()->index();
 
@@ -51,6 +52,9 @@ return new class extends Migration
             $table->unsignedInteger('room_per_day')->default(0);
             $table->unsignedInteger('bed_per_day')->default(0);
             $table->unsignedInteger('day')->default(0);
+
+            $table->foreignUuid('user_id')->constrained('users');
+            $table->foreignUuid('sync_status_id')->constrained('sync_statuses');
 
             $table->timestamps();
         });

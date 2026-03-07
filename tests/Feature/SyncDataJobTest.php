@@ -5,9 +5,10 @@ namespace Tests\Feature;
 use App\Jobs\SyncDataJob;
 use App\Models\Input;
 use App\Models\SyncStatus;
-use App\Models\Tabulation;
 use App\Services\GoogleSheetService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Mockery;
 use Tests\TestCase;
 
@@ -15,220 +16,99 @@ class SyncDataJobTest extends TestCase
 {
     use RefreshDatabase;
 
+    private function seedMonthAndYear(): array
+    {
+        $yearId = DB::table('years')->insertGetId(['code' => '2024', 'name' => 'Year 2024']);
+        $monthId = DB::table('months')->insertGetId(['code' => '01', 'name' => 'January']);
+
+        return ['yearId' => $yearId, 'monthId' => $monthId];
+    }
+
     protected function tearDown(): void
     {
         Mockery::close();
         parent::tearDown();
     }
 
-    public function test_sync_data_job_creates_sync_status_on_start(): void
+    public function test_constructor_marks_status_loading_immediately(): void
     {
-        config(['services.google_sheets.spreadsheet_id' => '1234567890']);
+        $lookup = $this->seedMonthAndYear();
+        $user = \App\Models\User::factory()->create();
 
-        $mockService = Mockery::mock(GoogleSheetService::class);
-        $mockService->shouldReceive('read')
-            ->with('1234567890', 'INPUT!A1:AE1000')
-            ->andReturn([
-                ['tanggal_update', 'tarikan_ke', 'idunik', 'kode_kab'],
-                ['2024-01-01', '1', 'ID001', 'KAB001'],
-            ]);
-
-        $mockService->shouldReceive('read')
-            ->with('1234567890', 'TABULASI!A1:AZ1000')
-            ->andReturn([
-                ['tanggal_update', 'tarikan_ke', 'idunik', 'mkts'],
-                ['2024-01-01', '1', 'ID001', '100'],
-            ]);
-
-        $this->app->instance(GoogleSheetService::class, $mockService);
-
-        $this->assertEquals(0, SyncStatus::count());
-
-        $job = new SyncDataJob;
-        $job->handle($mockService);
-
-        $this->assertEquals(1, SyncStatus::count());
-    }
-
-    public function test_sync_data_job_successfully_syncs_input_sheet(): void
-    {
-        config(['services.google_sheets.spreadsheet_id' => '1234567890']);
-
-        $mockService = Mockery::mock(GoogleSheetService::class);
-        $mockService->shouldReceive('read')
-            ->with('1234567890', 'INPUT!A1:AE1000')
-            ->andReturn([
-                ['tanggal_update', 'tarikan_ke', 'idunik', 'kode_kab', 'room', 'bed'],
-                ['2024-01-01', '1', 'ID001', 'KAB001', '10', '20'],
-                ['2024-01-02', '2', 'ID002', 'KAB002', '15', '25'],
-            ]);
-
-        $mockService->shouldReceive('read')
-            ->with('1234567890', 'TABULASI!A1:AZ1000')
-            ->andReturn([
-                ['tanggal_update', 'tarikan_ke', 'idunik'],
-                ['2024-01-01', '1', 'ID001'],
-            ]);
-
-        $this->app->instance(GoogleSheetService::class, $mockService);
-
-        $job = new SyncDataJob;
-        $job->handle($mockService);
-
-        $this->assertEquals(2, Input::count());
-
-        $input1 = Input::where('idunik', 'ID001')->first();
-        $this->assertNotNull($input1);
-        $this->assertEquals('KAB001', $input1->kode_kab);
-        $this->assertEquals(10, $input1->room);
-        $this->assertEquals(20, $input1->bed);
-    }
-
-    public function test_sync_data_job_successfully_syncs_tabulation_sheet(): void
-    {
-        config(['services.google_sheets.spreadsheet_id' => '1234567890']);
-
-        $mockService = Mockery::mock(GoogleSheetService::class);
-        $mockService->shouldReceive('read')
-            ->with('1234567890', 'INPUT!A1:AE1000')
-            ->andReturn([
-                ['tanggal_update', 'tarikan_ke', 'idunik'],
-                ['2024-01-01', '1', 'ID001'],
-            ]);
-
-        $mockService->shouldReceive('read')
-            ->with('1234567890', 'TABULASI!A1:AZ1000')
-            ->andReturn([
-                ['tanggal_update', 'tarikan_ke', 'idunik', 'mkts', 'mktj', 'tpk'],
-                ['2024-01-01', '1', 'ID001', '100', '200', '85.5'],
-                ['2024-01-02', '2', 'ID002', '150', '250', '90.2'],
-            ]);
-
-        $this->app->instance(GoogleSheetService::class, $mockService);
-
-        $job = new SyncDataJob;
-        $job->handle($mockService);
-
-        $this->assertEquals(2, Tabulation::count());
-
-        $tab1 = Tabulation::where('idunik', 'ID001')->first();
-        $this->assertNotNull($tab1);
-        $this->assertEquals(100, $tab1->mkts);
-        $this->assertEquals(200, $tab1->mktj);
-        $this->assertEquals(85.5, $tab1->tpk);
-    }
-
-    public function test_sync_data_job_creates_success_status_on_completion(): void
-    {
-        config(['services.google_sheets.spreadsheet_id' => '1234567890']);
-
-        $mockService = Mockery::mock(GoogleSheetService::class);
-        $mockService->shouldReceive('read')
-            ->with('1234567890', 'INPUT!A1:AE1000')
-            ->andReturn([
-                ['tanggal_update', 'tarikan_ke', 'idunik'],
-                ['2024-01-01', '1', 'ID001'],
-            ]);
-
-        $mockService->shouldReceive('read')
-            ->with('1234567890', 'TABULASI!A1:AZ1000')
-            ->andReturn([
-                ['tanggal_update', 'tarikan_ke', 'idunik'],
-                ['2024-01-01', '1', 'ID001'],
-            ]);
-
-        $this->app->instance(GoogleSheetService::class, $mockService);
-
-        $job = new SyncDataJob;
-        $job->handle($mockService);
-
-        $status = SyncStatus::latest()->first();
-        $this->assertNotNull($status);
-        $this->assertEquals('success', $status->status);
-        $this->assertEquals('Data synced successfully', $status->message);
-    }
-
-    public function test_sync_data_job_creates_failed_status_on_error(): void
-    {
-        config(['services.google_sheets.spreadsheet_id' => '1234567890']);
-
-        $mockService = Mockery::mock(GoogleSheetService::class);
-        $mockService->shouldReceive('read')
-            ->with('1234567890', 'INPUT!A1:AE1000')
-            ->andThrow(new \Exception('Connection failed'));
-
-        $this->app->instance(GoogleSheetService::class, $mockService);
-
-        $job = new SyncDataJob;
-        $job->handle($mockService);
-
-        $status = SyncStatus::latest()->first();
-        $this->assertNotNull($status);
-        $this->assertEquals('failed', $status->status);
-        $this->assertStringContainsString('Connection failed', $status->message);
-    }
-
-    public function test_sync_data_job_handles_empty_spreadsheet_id(): void
-    {
-        config(['services.google_sheets.spreadsheet_id' => '']);
-
-        $mockService = Mockery::mock(GoogleSheetService::class);
-        $mockService->shouldNotReceive('read');
-
-        $this->app->instance(GoogleSheetService::class, $mockService);
-
-        $job = new SyncDataJob;
-        $job->handle($mockService);
-
-        $status = SyncStatus::latest()->first();
-        $this->assertNotNull($status);
-        $this->assertEquals('failed', $status->status);
-        $this->assertStringContainsString('Spreadsheet ID is not configured', $status->message);
-    }
-
-    public function test_sync_data_job_clears_existing_data_before_sync(): void
-    {
-        config(['services.google_sheets.spreadsheet_id' => '1234567890']);
-
-        // Create existing data
-        Input::create([
-            'kode_kab' => 'OLD001',
-            'idunik' => 'OLD_ID',
+        $status = SyncStatus::create([
+            'id' => (string) Str::uuid(),
+            'user_id' => $user->id,
+            'filename' => 'example.xlsx',
+            'status' => 'start',
+            'month_id' => $lookup['monthId'],
+            'year_id' => $lookup['yearId'],
         ]);
 
-        Tabulation::create([
-            'idunik' => 'OLD_ID',
-            'mkts' => 999,
+        new SyncDataJob($status);
+
+        $status->refresh();
+        $this->assertSame('loading', $status->status);
+        $this->assertSame('Sync process started', $status->system_message);
+        $this->assertSame('Sync process started', $status->user_message);
+    }
+
+    public function test_handle_marks_failed_when_filename_missing(): void
+    {
+        $lookup = $this->seedMonthAndYear();
+        $user = \App\Models\User::factory()->create();
+
+        $status = SyncStatus::create([
+            'id' => (string) Str::uuid(),
+            'user_id' => $user->id,
+            'filename' => '',
+            'status' => 'start',
+            'month_id' => $lookup['monthId'],
+            'year_id' => $lookup['yearId'],
         ]);
 
-        $this->assertEquals(1, Input::count());
-        $this->assertEquals(1, Tabulation::count());
-
+        $job = new SyncDataJob($status);
         $mockService = Mockery::mock(GoogleSheetService::class);
-        $mockService->shouldReceive('read')
-            ->with('1234567890', 'INPUT!A1:AE1000')
-            ->andReturn([
-                ['tanggal_update', 'kode_kab', 'idunik'],
-                ['2024-01-01', 'NEW001', 'NEW_ID'],
-            ]);
 
-        $mockService->shouldReceive('read')
-            ->with('1234567890', 'TABULASI!A1:AZ1000')
-            ->andReturn([
-                ['tanggal_update', 'idunik', 'mkts'],
-                ['2024-01-01', 'NEW_ID', '100'],
-            ]);
+        try {
+            $job->handle($mockService);
+            $this->fail('Expected exception was not thrown');
+        } catch (\Throwable) {
+            // expected
+        }
 
-        $this->app->instance(GoogleSheetService::class, $mockService);
+        $status->refresh();
+        $this->assertSame('failed', $status->status);
+        $this->assertStringContainsString('Missing filename', (string) $status->system_message);
+        $this->assertSame('File configuration missing', $status->user_message);
+    }
 
-        $job = new SyncDataJob;
-        $job->handle($mockService);
+    public function test_handle_marks_failed_for_unsupported_extension(): void
+    {
+        $lookup = $this->seedMonthAndYear();
+        $user = \App\Models\User::factory()->create();
 
-        // Check old data is replaced
-        $this->assertEquals(1, Input::count());
-        $this->assertEquals(1, Tabulation::count());
+        $status = SyncStatus::create([
+            'id' => (string) Str::uuid(),
+            'user_id' => $user->id,
+            'filename' => 'bad.txt',
+            'status' => 'start',
+            'month_id' => $lookup['monthId'],
+            'year_id' => $lookup['yearId'],
+        ]);
 
-        $this->assertNull(Input::where('idunik', 'OLD_ID')->first());
-        $this->assertNotNull(Input::where('idunik', 'NEW_ID')->first());
+        $job = new SyncDataJob($status);
+        $mockService = Mockery::mock(GoogleSheetService::class);
+
+        try {
+            $job->handle($mockService);
+            $this->fail('Expected exception was not thrown');
+        } catch (\Throwable) {
+            // expected
+        }
+
+        $status->refresh();
+        $this->assertSame('failed', $status->status);
+        $this->assertStringContainsString('.csv or .xlsx', (string) $status->system_message);
+        $this->assertSame('Uploaded file must be .csv or .xlsx', $status->user_message);
     }
 }

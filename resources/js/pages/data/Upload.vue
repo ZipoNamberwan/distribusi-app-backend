@@ -1,23 +1,24 @@
-<script setup lang="ts">
+<script setup>
 import { Head, useForm, usePage } from '@inertiajs/vue3';
-import { computed } from 'vue';
+import { ref, watch } from 'vue'
+import { message } from 'ant-design-vue'
 import AppLayout from '@/layouts/AppLayout.vue';
 import { index as dataIndex } from '@/routes/data';
 import { index as uploadIndex } from '@/routes/upload';
 import { index as storeUpload } from '@/routes/upload/store';
 import { index as downloadTemplate } from '@/routes/upload/template';
-import type { BreadcrumbItem } from '@/types';
 import StatusUploadComponent from '@/custom_components/StatusUploadComponent.vue';
 import RawDataComponent from '@/custom_components/RawDataComponent.vue';
 
-const page = usePage<{
-    flash: {
-        success?: string;
-        error?: string;
-    };
-}>();
+const page = usePage();
 
-const breadcrumbs: BreadcrumbItem[] = [
+const props = defineProps({
+    months: Array,
+    years: Array,
+    statuses: Array,
+});
+
+const breadcrumbs = [
     {
         title: 'Data',
         href: dataIndex().url,
@@ -28,24 +29,28 @@ const breadcrumbs: BreadcrumbItem[] = [
     },
 ];
 
-const form = useForm<{ target: 'input' | 'tabulation'; file: File | null }>({
+const form = useForm({
     target: 'input',
+    year: null,
+    month: null,
     file: null,
 });
 
-const canSubmit = computed(() => {
-    return form.file !== null && !form.processing;
-});
+const formRef = ref(null)
 
-type UploadChangeInfo = {
-    file?: {
-        originFileObj?: File;
-        status?: string;
-    };
-    fileList?: Array<{ originFileObj?: File }>;
-};
+const rules = {
+    month: [
+        { required: true, message: 'Bulan masih kosong', trigger: 'change' },
+    ],
+    year: [
+        { required: true, message: 'Tahun masih kosong', trigger: 'change' },
+    ],
+    file: [
+        { required: true, message: 'File masih kosong', trigger: 'change' },
+    ],
+}
 
-const onUploadChange = (info: UploadChangeInfo) => {
+const onUploadChange = (info) => {
     if (!info.fileList || info.fileList.length === 0) {
         form.file = null;
         return;
@@ -60,12 +65,33 @@ const onUploadRemove = () => {
 };
 
 const submit = () => {
-    form.post(storeUpload().url, {
-        forceFormData: true,
-        preserveScroll: true,
-    });
+    formRef.value
+        .validate()
+        .then(() => {
+            form.post(storeUpload().url, {
+                forceFormData: true,
+                preserveScroll: true,
+                onSuccess: () => form.reset(),
+            });
+        })
+        .catch(() => {
+            // console.log('client validation failed')
+        })
 };
 
+watch(
+  () => page.props.flash,
+  (flash) => {
+    if (flash.success) {
+      message.success(flash.success, 5)
+    }
+
+    if (flash.error) {
+      message.error(flash.error, 5)
+    }
+  },
+  { immediate: true }
+)
 </script>
 
 <template>
@@ -93,7 +119,7 @@ const submit = () => {
                                 <p class="font-semibold">Status Upload</p>
                                 <p class="text-muted-foreground text-sm">Pantau riwayat upload file</p>
                             </div>
-                            <StatusUploadComponent />
+                            <StatusUploadComponent :statuses="props.statuses" />
                         </div>
                     </a-card>
                 </a-col>
@@ -107,9 +133,28 @@ const submit = () => {
                                 Download Template
                             </a>
                         </a-typography-paragraph>
-                        <a-form layout="vertical">
-                            <a-form-item label="File (.xlsx)" :validate-status="form.errors.file ? 'error' : undefined"
-                                :help="form.errors.file">
+                        <a-form layout="vertical" :label-col="{ span: 3 }" :wrapper-col="{ span: 8 }" :model="form"
+                            :rules="rules" ref="formRef">
+                            <a-form-item name="month" label="Bulan"
+                                :validate-status="form.errors.month ? 'error' : undefined" :help="form.errors.month">
+                                <a-select v-model:value="form.month" placeholder="Pilih Bulan" allow-clear>
+                                    <a-select-option v-for="month in props.months" :key="month.id" :value="month.id">
+                                        {{ month.name }}
+                                    </a-select-option>
+                                </a-select>
+                            </a-form-item>
+
+                            <a-form-item name="year" label="Tahun"
+                                :validate-status="form.errors.year ? 'error' : undefined" :help="form.errors.year">
+                                <a-select v-model:value="form.year" placeholder="Pilih Tahun" allow-clear>
+                                    <a-select-option v-for="year in props.years" :key="year.id" :value="year.id">
+                                        {{ year.name }}
+                                    </a-select-option>
+                                </a-select>
+                            </a-form-item>
+
+                            <a-form-item name="file" label="File (.xlsx)" :wrapper-col="{ span: 12 }"
+                                :validate-status="form.errors.file ? 'error' : undefined" :help="form.errors.file">
                                 <a-upload-dragger :before-upload="() => false" :max-count="1" :multiple="false"
                                     accept=".xlsx" @change="onUploadChange" @remove="onUploadRemove">
                                     <p class="ant-upload-text">Click or drag file to this area</p>
@@ -117,18 +162,20 @@ const submit = () => {
                                 </a-upload-dragger>
                             </a-form-item>
 
-                            <div class="flex flex-col gap-4">
-                                <a-button type="primary" :disabled="!canSubmit" :loading="form.processing"
-                                    @click="submit">
-                                    Upload
-                                </a-button>
-
-                                <a-alert v-if="page.props.flash?.success" type="success" show-icon
-                                    :message="page.props.flash.success" closable />
-
-                                <a-alert v-if="page.props.flash?.error" type="error" show-icon
-                                    :message="page.props.flash.error" closable />
-                            </div>
+                            <a-form-item :wrapper-col="{ offset: 0, span: 16 }">
+                                <div class="flex flex-col gap-3">
+                                    <div>
+                                        <a-button type="primary" :loading="form.processing" @click="submit">
+                                            Upload
+                                        </a-button>
+                                    </div>
+                                    
+                                    <a-alert v-if="page.props.flash?.success" type="success" show-icon
+                                        :message="page.props.flash.success" closable />
+                                    <a-alert v-if="page.props.flash?.error" type="error" show-icon
+                                        :message="page.props.flash.error" closable />
+                                </div>
+                            </a-form-item>
                         </a-form>
                     </a-card>
                 </a-col>

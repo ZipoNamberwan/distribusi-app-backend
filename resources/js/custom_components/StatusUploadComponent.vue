@@ -8,19 +8,13 @@ import moment from 'moment';
 const open = ref(false);
 const lastParams = ref({});
 
-const statusTagColor = {
-    start: 'default',
-    loading: 'processing',
-    success: 'success',
-    failed: 'error',
-};
+const props = defineProps({
+    statuses: Array,
+});
 
-const statusLabel = {
-    start: 'Start',
-    loading: 'Loading',
-    success: 'Sukses',
-    failed: 'Gagal',
-};
+const statusMap = computed(() =>
+    Object.fromEntries((props.statuses ?? []).map(s => [s.value, s]))
+);
 
 const columns = [
     {
@@ -28,12 +22,13 @@ const columns = [
         dataIndex: 'status',
         sorter: true,
         width: '10%',
-        filters: [
-            { text: 'Start', value: 'start' },
-            { text: 'Loading', value: 'loading' },
-            { text: 'Sukses', value: 'success' },
-            { text: 'Gagal', value: 'failed' },
-        ],
+        filters: (props.statuses ?? []).map(s => ({ text: s.title, value: s.value })),
+    },
+    {
+        title: 'Periode',
+        key: 'periode',
+        width: '15%',
+        // sorter: true,
     },
     {
         title: 'File',
@@ -42,7 +37,7 @@ const columns = [
     },
     {
         title: 'Pesan',
-        dataIndex: 'message',
+        dataIndex: 'user_message',
         width: "40%",
     },
     {
@@ -162,11 +157,14 @@ watch(open, (isOpen) => {
             <a-table :scroll="{ x: 500, y: 400 }" :columns="columns" :row-key="record => record.id"
                 :data-source="dataSource?.list ?? []" :pagination="pagination" :loading="loading"
                 @change="handleTableChange" size="small">
-                <template #bodyCell="{ column, text }">
+                <template #bodyCell="{ column, text, record }">
                     <template v-if="column.dataIndex === 'status'">
-                        <a-tag :color="statusTagColor[text] ?? 'default'">
-                            {{ statusLabel[text] ?? text }}
+                        <a-tag :color="statusMap[text]?.color ?? 'default'">
+                            {{ statusMap[text]?.title ?? text }}
                         </a-tag>
+                    </template>
+                    <template v-if="column.key === 'periode'">
+                        <span>{{ record.month?.name }} {{ record.year?.name }}</span>
                     </template>
                     <template v-else-if="column.dataIndex === 'message'">
                         <span :title="text">{{ text ? text.slice(0, 150) + (text.length > 150 ? '…' : '') : '' }}</span>
