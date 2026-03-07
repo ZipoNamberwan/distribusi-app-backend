@@ -17,6 +17,7 @@ import {
 import { dashboard } from '@/routes';
 import { index as dataIndex } from '@/routes/data';
 import { index as dataUpload } from '@/routes/upload';
+import { index as indicatorValues } from '@/routes/indicator/table';
 import type { NavItem } from '@/types';
 
 const mainNavItems: NavItem[] = [
@@ -34,6 +35,11 @@ const mainNavItems: NavItem[] = [
         title: 'Upload Excel',
         href: dataUpload(),
         icon: Upload,
+    },
+    {
+        title: 'Indikator',
+        href: indicatorValues(),
+        icon: LayoutGrid,
     },
 ];
 

@@ -3,6 +3,9 @@
 namespace App\Jobs;
 
 use App\Exceptions\ImportException;
+use App\Models\Category;
+use App\Models\Indicator;
+use App\Models\IndicatorValue;
 use App\Models\Input;
 use App\Models\Regency;
 use App\Models\SyncStatus;
@@ -10,6 +13,7 @@ use App\Models\Tabulation;
 use App\Services\GoogleSheetService;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -74,6 +78,8 @@ class SyncDataJob implements ShouldQueue
                 ->where('tahun', $syncStatus->year_id)
                 ->where('sync_status_id', '!=', (string) $syncStatus->id)
                 ->delete();
+
+            $this->calculateIndicatorValues($syncStatus);
 
             $syncStatus->update([
                 'status' => 'success',
@@ -1431,6 +1437,234 @@ class SyncDataJob implements ShouldQueue
             // Include row only if column C has a non-empty value
             return $value !== null && trim($value) !== '';
         }));
+    }
+
+    /**
+     * Calculate and persist indicator values for the synced period.
+     * Aggregates input rows per regency/jenis_akomodasi and applies the
+     * indicator formulas translated from the original Excel spreadsheet.
+     */
+    private function calculateIndicatorValues(SyncStatus $syncStatus): void
+    {
+        try {
+            $yearId = $syncStatus->year_id;
+            $monthId = $syncStatus->month_id;
+
+            $aggregates = Input::query()
+                ->select([
+                    'kode_kab',
+                    'jenis_akomodasi',
+                    DB::raw('SUM(mktj) as sum_mktj'),
+                    DB::raw('SUM(mkts) as sum_mkts'),
+                    DB::raw('SUM(mta) as sum_mta'),
+                    DB::raw('SUM(ta) as sum_ta'),
+                    DB::raw('SUM(mtnus) as sum_mtnus'),
+                    DB::raw('SUM(tnus) as sum_tnus'),
+                    DB::raw('SUM(mtgab) as sum_mtgab'),
+                    DB::raw('SUM(bed) as sum_bed'),
+                ])
+                ->where('tahun', $yearId)
+                ->where('bulan', $monthId)
+                ->whereIn('jenis_akomodasi', [1, 2])
+                ->groupBy('kode_kab', 'jenis_akomodasi')
+                ->get();
+
+            if ($aggregates->isEmpty()) {
+                return;
+            }
+
+            $totalAggregates = Input::query()
+                ->select([
+                    'kode_kab',
+                    DB::raw('SUM(mktj) as sum_mktj'),
+                    DB::raw('SUM(mkts) as sum_mkts'),
+                    DB::raw('SUM(mta) as sum_mta'),
+                    DB::raw('SUM(ta) as sum_ta'),
+                    DB::raw('SUM(mtnus) as sum_mtnus'),
+                    DB::raw('SUM(tnus) as sum_tnus'),
+                    DB::raw('SUM(mtgab) as sum_mtgab'),
+                    DB::raw('SUM(bed) as sum_bed'),
+                ])
+                ->where('tahun', $yearId)
+                ->where('bulan', $monthId)
+                ->groupBy('kode_kab')
+                ->get()
+                ->keyBy('kode_kab');
+
+            $indicators = Indicator::query()->pluck('id', 'code');
+            $categories = Category::query()->pluck('id', 'code');
+
+            foreach (['TPK', 'RLMTA', 'RLMTN', 'GPR', 'TPTT'] as $code) {
+                if ($indicators->get($code) === null) {
+                    throw new RuntimeException("Indicator '{$code}' not found in database");
+                }
+            }
+
+            foreach (['1', '2'] as $code) {
+                if ($categories->get($code) === null) {
+                    throw new RuntimeException("Category '{$code}' not found in database");
+                }
+            }
+
+            $totalCategoryIdRaw = Category::whereNull('code')->value('id');
+            if ($totalCategoryIdRaw === null) {
+                throw new RuntimeException("Category 'Total' not found in database");
+            }
+            $totalCategoryId = (int) $totalCategoryIdRaw;
+
+            /** @var array<int|string, array<int, mixed>> $byRegencyAndJenis */
+            $byRegencyAndJenis = [];
+            foreach ($aggregates as $agg) {
+                $byRegencyAndJenis[$agg->kode_kab][$agg->jenis_akomodasi] = $agg;
+            }
+
+            IndicatorValue::where('year_id', $yearId)
+                ->where('month_id', $monthId)
+                ->delete();
+
+            $bintangCatId = (int) $categories->get('1');
+            $nonBintangCatId = (int) $categories->get('2');
+            // $totalCategoryId already resolved above
+            $tpkId = (int) $indicators->get('TPK');
+            $rlmtaId = (int) $indicators->get('RLMTA');
+            $rlmtnId = (int) $indicators->get('RLMTN');
+            $gprId = (int) $indicators->get('GPR');
+            $tpttId = (int) $indicators->get('TPTT');
+
+            $records = [];
+            $now = now()->toDateTimeString();
+
+            foreach (array_keys($byRegencyAndJenis) as $regencyId) {
+                $agg1 = $byRegencyAndJenis[$regencyId][1] ?? null; // Bintang
+                $agg2 = $byRegencyAndJenis[$regencyId][2] ?? null; // Non Bintang
+
+                // TPK Bintang — jenis=1
+                $tpkBintang = $agg1 !== null && (float) $agg1->sum_mkts > 0
+                    ? round(100 * (float) $agg1->sum_mktj / (float) $agg1->sum_mkts, 2)
+                    : null;
+                $records[] = $this->makeIndicatorRecord($regencyId, $yearId, $monthId, $tpkId, $bintangCatId, $tpkBintang, $now);
+
+                // TPK Non Bintang — jenis=2
+                $tpkNonBintang = $agg2 !== null && (float) $agg2->sum_mkts > 0
+                    ? round(100 * (float) $agg2->sum_mktj / (float) $agg2->sum_mkts, 2)
+                    : null;
+                $records[] = $this->makeIndicatorRecord($regencyId, $yearId, $monthId, $tpkId, $nonBintangCatId, $tpkNonBintang, $now);
+
+                // RLMTA Bintang — jenis=1
+                $rlmtaBintang = $agg1 !== null && (float) $agg1->sum_ta > 0
+                    ? round((float) $agg1->sum_mta / (float) $agg1->sum_ta, 2)
+                    : null;
+                $records[] = $this->makeIndicatorRecord($regencyId, $yearId, $monthId, $rlmtaId, $bintangCatId, $rlmtaBintang, $now);
+
+                // RLMTA Non Bintang — jenis=2
+                $rlmtaNonBintang = $agg2 !== null && (float) $agg2->sum_ta > 0
+                    ? round((float) $agg2->sum_mta / (float) $agg2->sum_ta, 2)
+                    : null;
+                $records[] = $this->makeIndicatorRecord($regencyId, $yearId, $monthId, $rlmtaId, $nonBintangCatId, $rlmtaNonBintang, $now);
+
+                // RLMTN Bintang — jenis=1
+                $rlmtnBintang = $agg1 !== null && (float) $agg1->sum_tnus > 0
+                    ? round((float) $agg1->sum_mtnus / (float) $agg1->sum_tnus, 2)
+                    : null;
+                $records[] = $this->makeIndicatorRecord($regencyId, $yearId, $monthId, $rlmtnId, $bintangCatId, $rlmtnBintang, $now);
+
+                // RLMTN Non Bintang — jenis=2
+                $rlmtnNonBintang = $agg2 !== null && (float) $agg2->sum_tnus > 0
+                    ? round((float) $agg2->sum_mtnus / (float) $agg2->sum_tnus, 2)
+                    : null;
+                $records[] = $this->makeIndicatorRecord($regencyId, $yearId, $monthId, $rlmtnId, $nonBintangCatId, $rlmtnNonBintang, $now);
+
+                // GPR Bintang — jenis=1
+                $gprBintang = $agg1 !== null && (float) $agg1->sum_mktj > 0
+                    ? round((float) $agg1->sum_mtgab / (float) $agg1->sum_mktj, 2)
+                    : null;
+                $records[] = $this->makeIndicatorRecord($regencyId, $yearId, $monthId, $gprId, $bintangCatId, $gprBintang, $now);
+
+                // GPR Non Bintang — jenis=2
+                $gprNonBintang = $agg2 !== null && (float) $agg2->sum_mktj > 0
+                    ? round((float) $agg2->sum_mtgab / (float) $agg2->sum_mktj, 2)
+                    : null;
+                $records[] = $this->makeIndicatorRecord($regencyId, $yearId, $monthId, $gprId, $nonBintangCatId, $gprNonBintang, $now);
+
+                // TPTT Bintang — jenis=1
+                $tpttBintang = $agg1 !== null && (float) $agg1->sum_bed > 0
+                    ? round(100 * (float) $agg1->sum_mtgab / (float) $agg1->sum_bed, 2)
+                    : null;
+                $records[] = $this->makeIndicatorRecord($regencyId, $yearId, $monthId, $tpttId, $bintangCatId, $tpttBintang, $now);
+
+                // TPTT Non Bintang — jenis=2
+                $tpttNonBintang = $agg2 !== null && (float) $agg2->sum_bed > 0
+                    ? round(100 * (float) $agg2->sum_mtgab / (float) $agg2->sum_bed, 2)
+                    : null;
+                $records[] = $this->makeIndicatorRecord($regencyId, $yearId, $monthId, $tpttId, $nonBintangCatId, $tpttNonBintang, $now);
+
+                $totAgg = $totalAggregates->get($regencyId);
+
+                // TPK Total — all jenis
+                $tpkTotal = $totAgg !== null && (float) $totAgg->sum_mkts > 0
+                    ? round(100 * (float) $totAgg->sum_mktj / (float) $totAgg->sum_mkts, 2)
+                    : null;
+                $records[] = $this->makeIndicatorRecord($regencyId, $yearId, $monthId, $tpkId, $totalCategoryId, $tpkTotal, $now);
+
+                // RLMTA Total — all jenis
+                $rlmtaTotal = $totAgg !== null && (float) $totAgg->sum_ta > 0
+                    ? round((float) $totAgg->sum_mta / (float) $totAgg->sum_ta, 2)
+                    : null;
+                $records[] = $this->makeIndicatorRecord($regencyId, $yearId, $monthId, $rlmtaId, $totalCategoryId, $rlmtaTotal, $now);
+
+                // RLMTN Total — all jenis
+                $rlmtnTotal = $totAgg !== null && (float) $totAgg->sum_tnus > 0
+                    ? round((float) $totAgg->sum_mtnus / (float) $totAgg->sum_tnus, 2)
+                    : null;
+                $records[] = $this->makeIndicatorRecord($regencyId, $yearId, $monthId, $rlmtnId, $totalCategoryId, $rlmtnTotal, $now);
+
+                // GPR Total — all jenis
+                $gprTotal = $totAgg !== null && (float) $totAgg->sum_mktj > 0
+                    ? round((float) $totAgg->sum_mtgab / (float) $totAgg->sum_mktj, 2)
+                    : null;
+                $records[] = $this->makeIndicatorRecord($regencyId, $yearId, $monthId, $gprId, $totalCategoryId, $gprTotal, $now);
+
+                // TPTT Total — all jenis
+                $tpttTotal = $totAgg !== null && (float) $totAgg->sum_bed > 0
+                    ? round(100 * (float) $totAgg->sum_mtgab / (float) $totAgg->sum_bed, 2)
+                    : null;
+                $records[] = $this->makeIndicatorRecord($regencyId, $yearId, $monthId, $tpttId, $totalCategoryId, $tpttTotal, $now);
+            }
+
+            foreach (array_chunk($records, 500) as $chunk) {
+                IndicatorValue::insert($chunk);
+            }
+        } catch (Throwable $e) {
+            throw new ImportException(
+                'Indicator calculation failed: '.$e->getMessage(),
+                'Indicator calculation failed'
+            );
+        }
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function makeIndicatorRecord(
+        int|string $regencyId,
+        int $yearId,
+        int $monthId,
+        int $indicatorId,
+        int $categoryId,
+        ?float $value,
+        string $now
+    ): array {
+        return [
+            'id' => (string) Str::uuid(),
+            'regency_id' => (int) $regencyId,
+            'year_id' => $yearId,
+            'month_id' => $monthId,
+            'indicator_id' => $indicatorId,
+            'category_id' => $categoryId,
+            'value' => $value,
+            'created_at' => $now,
+            'updated_at' => $now,
+        ];
     }
 
     private function normalizeSpreadsheetId(string $spreadsheetId): string

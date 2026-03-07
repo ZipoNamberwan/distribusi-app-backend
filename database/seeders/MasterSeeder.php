@@ -84,6 +84,7 @@ class MasterSeeder extends Seeder
 
         Category::create(['name' => 'Bintang', 'code' => '1']);
         Category::create(['name' => 'Non Bintang', 'code' => '2']);
+        Category::create(['name' => 'Total', 'code' => null]);
 
         Indicator::create(['name' => 'TPK', 'code' => 'TPK']);
         Indicator::create(['name' => 'RLMTA', 'code' => 'RLMTA']);

@@ -21,6 +21,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('download', [UploadController::class, 'downloadFile'])->name('upload.file.download');
     Route::get('upload/status/data', [UploadController::class, 'getUploadStatusData'])->name('upload.status.index');
 
+    Route::get('indicator', [DataController::class, 'showIndicatorValues'])->name('indicator.table.index');
+    Route::get('indicator/data', [DataController::class, 'getIndicatorValuesData'])->name('indicator.data.index');
 });
 
-require __DIR__.'/settings.php';
+require __DIR__ . '/settings.php';
