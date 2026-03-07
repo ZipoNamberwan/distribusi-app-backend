@@ -119,9 +119,16 @@ class SyncDataJob implements ShouldQueue
 
         $headers = array_map([$this, 'normalizeHeader'], $rawHeaders);
 
+        $computedColumns = [
+            'mkts', 'mktj', 'tpk', 'mta', 'ta', 'mtnus', 'tnus',
+            'rlmta', 'rlmtnus', 'mtgab', 'tgab', 'rlmtgab', 'gpr', 'tptt',
+            'jumlah_hari', 'error_tpk', 'error_rlmta', 'error_rlmtnus',
+            'error_gpr', 'error_tptt', 'error_hari', 'jumlah_error',
+        ];
+
         $allowedColumns = array_values(array_diff(
             Schema::getColumnListing('input'),
-            ['id', 'created_at', 'updated_at', 'tahun', 'bulan', 'sync_status_id']
+            array_merge(['id', 'created_at', 'updated_at', 'tahun', 'bulan', 'sync_status_id'], $computedColumns)
         ));
         $allowedLookup = array_fill_keys($allowedColumns, true);
 
@@ -266,6 +273,15 @@ class SyncDataJob implements ShouldQueue
 
             $record = $this->resolveInputForeignKeysOrThrow($record, $maps, 'CSV row '.$rowNumber);
 
+            try {
+                $record = $this->calculateTabulation($record);
+            } catch (Throwable $calcEx) {
+                throw new ImportException(
+                    'Error calculating tabulation at CSV row '.$rowNumber.': '.$calcEx->getMessage(),
+                    'Error calculating tabulation'
+                );
+            }
+
             $buffer[] = $record;
 
             if (count($buffer) >= $insertBatchSize) {
@@ -314,9 +330,16 @@ class SyncDataJob implements ShouldQueue
 
         $headers = array_map([$this, 'normalizeHeader'], array_map(fn ($v) => $this->stringifyCellValue($v), $rawHeaders));
 
+        $computedColumns = [
+            'mkts', 'mktj', 'tpk', 'mta', 'ta', 'mtnus', 'tnus',
+            'rlmta', 'rlmtnus', 'mtgab', 'tgab', 'rlmtgab', 'gpr', 'tptt',
+            'jumlah_hari', 'error_tpk', 'error_rlmta', 'error_rlmtnus',
+            'error_gpr', 'error_tptt', 'error_hari', 'jumlah_error',
+        ];
+
         $allowedColumns = array_values(array_diff(
             Schema::getColumnListing('input'),
-            ['id', 'created_at', 'updated_at', 'tahun', 'bulan', 'sync_status_id']
+            array_merge(['id', 'created_at', 'updated_at', 'tahun', 'bulan', 'sync_status_id'], $computedColumns)
         ));
         $allowedLookup = array_fill_keys($allowedColumns, true);
 
@@ -464,6 +487,15 @@ class SyncDataJob implements ShouldQueue
                 }
 
                 $record = $this->resolveInputForeignKeysOrThrow($record, $maps, 'XLSX row '.$rowNumber);
+
+                try {
+                    $record = $this->calculateTabulation($record);
+                } catch (Throwable $calcEx) {
+                    throw new ImportException(
+                        'Error calculating tabulation at XLSX row '.$rowNumber.': '.$calcEx->getMessage(),
+                        'Error calculating tabulation'
+                    );
+                }
 
                 $buffer[] = $record;
 
@@ -804,6 +836,183 @@ class SyncDataJob implements ShouldQueue
         $value = trim($value);
 
         return Str::snake(Str::lower($value));
+    }
+
+    /**
+     * Calculate tabulation columns from raw input data.
+     * Formulas translated from the Excel REKAPITULASI sheet.
+     *
+     * @param  array<string, mixed>  $record
+     * @return array<string, mixed>
+     */
+    private function calculateTabulation(array $record): array
+    {
+        $room = isset($record['room']) ? (float) $record['room'] : null;
+        $bed = isset($record['bed']) ? (float) $record['bed'] : null;
+        $roomYesterday = (float) ($record['room_yesterday'] ?? 0);
+        $roomIn = (float) ($record['room_in'] ?? 0);
+        $roomOut = (float) ($record['room_out'] ?? 0);
+        $wnaYesterday = (float) ($record['wna_yesterday'] ?? 0);
+        $wniYesterday = (float) ($record['wni_yesterday'] ?? 0);
+        $wnaIn = (float) ($record['wna_in'] ?? 0);
+        $wniIn = (float) ($record['wni_in'] ?? 0);
+        $wnaOut = (float) ($record['wna_out'] ?? 0);
+        $wniOut = (float) ($record['wni_out'] ?? 0);
+        $namaKomersialEmpty = trim((string) ($record['nama_komersial'] ?? '')) === '';
+        $statusKunjunganEmpty = ($record['status_kunjungan'] ?? null) === null || (string) $record['status_kunjungan'] === '';
+        $jenisAkomodasi = isset($record['jenis_akomodasi']) ? (int) $record['jenis_akomodasi'] : null;
+
+        // MKTS = =if(INPUT!P="";"";INPUT!P) → room, 0 when blank
+        $mkts = (int) ($room ?? 0);
+
+        // MKTJ = room_yesterday + room_in - room_out; "" when 0
+        $mktjRaw = $roomYesterday + $roomIn - $roomOut;
+        $mktj = $mktjRaw == 0 ? 0 : (int) $mktjRaw;
+
+        // TPK = if(nama empty → 0); else 100 * MKTJ / MKTS; iferror → 0
+        $tpk = 0.0;
+        if (! $namaKomersialEmpty) {
+            $tpk = $mkts != 0 ? round(100 * $mktj / $mkts, 6) : 0.0;
+        }
+
+        // MTA = if(nama empty → 0); else wna_yesterday + wna_in - wna_out
+        $mta = 0;
+        if (! $namaKomersialEmpty) {
+            $mta = (int) ($wnaYesterday + $wnaIn - $wnaOut);
+        }
+
+        // TA = if(nama empty → 0); else wna_in (0 when wna_in = 0)
+        $ta = 0;
+        if (! $namaKomersialEmpty) {
+            $ta = (int) $wnaIn;
+        }
+
+        // MTNUS = if(nama empty → 0); else wni_yesterday + wni_in - wni_out
+        $mtnus = 0;
+        if (! $namaKomersialEmpty) {
+            $mtnus = (int) ($wniYesterday + $wniIn - $wniOut);
+        }
+
+        // TNUS = if(nama empty → 0); else wni_in (0 when wni_in = 0)
+        $tnus = 0;
+        if (! $namaKomersialEmpty) {
+            $tnus = (int) $wniIn;
+        }
+
+        // RLMTA = if(nama empty → 0); else MTA / TA; iferror → 0
+        $rlmta = 0.0;
+        if (! $namaKomersialEmpty) {
+            $rlmta = $ta != 0 ? round($mta / $ta, 6) : 0.0;
+        }
+
+        // RLMTNUS = if(nama empty → 0); else MTNUS / TNUS; iferror → 0
+        $rlmtnus = 0.0;
+        if (! $namaKomersialEmpty) {
+            $rlmtnus = $tnus != 0 ? round($mtnus / $tnus, 6) : 0.0;
+        }
+
+        // MTGAB = if(status_kunjungan empty → 0); else MTA + MTNUS
+        $mtgab = 0;
+        if (! $statusKunjunganEmpty) {
+            $mtgab = $mta + $mtnus;
+        }
+
+        // TGAB = if(status_kunjungan empty → 0); else TA + TNUS
+        $tgab = 0;
+        if (! $statusKunjunganEmpty) {
+            $tgab = $ta + $tnus;
+        }
+
+        // RLMTGAB = MTGAB / TGAB; iferror → 0
+        $rlmtgab = 0.0;
+        if ($tgab != 0) {
+            $rlmtgab = round($mtgab / $tgab, 6);
+        }
+
+        // GPR = MTGAB / MKTJ; iferror → 0
+        $gpr = 0.0;
+        if ($mktj != 0) {
+            $gpr = round($mtgab / $mktj, 6);
+        }
+
+        // TPTT = if(nama empty → 0); else 100 * MTGAB / bed; iferror → 0
+        $tptt = 0.0;
+        if (! $namaKomersialEmpty) {
+            $tptt = ($bed !== null && $bed != 0) ? round(100 * $mtgab / $bed, 6) : 0.0;
+        }
+
+        // Error TPK: if(nama empty → 0); (TPK <= 0 || TPK > 100) ? 1 : 0
+        $errorTpk = 0;
+        if (! $namaKomersialEmpty) {
+            $errorTpk = ($tpk <= 0 || $tpk > 100) ? 1 : 0;
+        }
+
+        // Error RLMTA: if(nama empty → 0); if(MTA=0 & TA=0 → 0); (RLMTA < 1 || RLMTA > 5) ? 1 : 0
+        $errorRlmta = 0;
+        if (! $namaKomersialEmpty) {
+            if ($mta !== 0 || $ta !== 0) {
+                $errorRlmta = ($rlmta < 1 || $rlmta > 5) ? 1 : 0;
+            }
+        }
+
+        // Error RLMTNUS: if(nama empty → 0); if(MTNUS=0 & TNUS=0 → 0); (RLMTNUS < 1 || RLMTNUS > 5) ? 1 : 0
+        $errorRlmtnus = 0;
+        if (! $namaKomersialEmpty) {
+            if ($mtnus !== 0 || $tnus !== 0) {
+                $errorRlmtnus = ($rlmtnus < 1 || $rlmtnus > 5) ? 1 : 0;
+            }
+        }
+
+        // Error GPR: if(nama empty → 0); if(MTGAB=0 & MKTJ=0 → 0);
+        //            jenis >= 2: (GPR<1||GPR>8)?1:0; jenis=1: (GPR<1||GPR>4)?1:0; else 0
+        $errorGpr = 0;
+        if (! $namaKomersialEmpty) {
+            if ($mtgab !== 0 || $mktj !== 0) {
+                if ($jenisAkomodasi !== null && $jenisAkomodasi >= 2) {
+                    $errorGpr = ($gpr < 1 || $gpr > 8) ? 1 : 0;
+                } elseif ($jenisAkomodasi === 1) {
+                    $errorGpr = ($gpr < 1 || $gpr > 4) ? 1 : 0;
+                }
+            }
+        }
+
+        // Error TPTT: if(nama empty → 0); if(MTGAB=0 & MTA=0 → 0); (TPTT < 0 || TPTT > 100) ? 1 : 0
+        $errorTptt = 0;
+        if (! $namaKomersialEmpty) {
+            if ($mtgab !== 0 || $mta !== 0) {
+                $errorTptt = ($tptt < 0 || $tptt > 100) ? 1 : 0;
+            }
+        }
+
+        // Error Hari: 0 for now
+        $errorHari = 0;
+
+        $jumlahError = $errorTpk + $errorRlmta + $errorRlmtnus + $errorGpr + $errorTptt + $errorHari;
+
+        return array_merge($record, [
+            'mkts' => $mkts,
+            'mktj' => $mktj,
+            'tpk' => $tpk,
+            'mta' => $mta,
+            'ta' => $ta,
+            'mtnus' => $mtnus,
+            'tnus' => $tnus,
+            'rlmta' => $rlmta,
+            'rlmtnus' => $rlmtnus,
+            'mtgab' => $mtgab,
+            'tgab' => $tgab,
+            'rlmtgab' => $rlmtgab,
+            'gpr' => $gpr,
+            'tptt' => $tptt,
+            'jumlah_hari' => null,
+            'error_tpk' => $errorTpk,
+            'error_rlmta' => $errorRlmta,
+            'error_rlmtnus' => $errorRlmtnus,
+            'error_gpr' => $errorGpr,
+            'error_tptt' => $errorTptt,
+            'error_hari' => $errorHari,
+            'jumlah_error' => $jumlahError,
+        ]);
     }
 
     /**

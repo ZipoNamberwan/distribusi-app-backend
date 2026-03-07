@@ -2,9 +2,11 @@
 
 namespace Database\Seeders;
 
+use App\Models\Category;
 use App\Models\Month;
 use App\Models\Regency;
 use App\Models\Year;
+use App\Models\Indicator;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 
@@ -33,7 +35,7 @@ class MasterSeeder extends Seeder
             Month::create($month);
         }
 
-         //now do it for years from 2024-2028
+        //now do it for years from 2024-2028
         for ($year = 2024; $year <= 2028; $year++) {
             Year::create([
                 'name' => (string) $year,
@@ -79,5 +81,14 @@ class MasterSeeder extends Seeder
         Regency::create(['short_code' => '77', 'long_code' => '3577', 'id' => '3577', 'name' => 'MADIUN',]);
         Regency::create(['short_code' => '78', 'long_code' => '3578', 'id' => '3578', 'name' => 'SURABAYA',]);
         Regency::create(['short_code' => '79', 'long_code' => '3579', 'id' => '3579', 'name' => 'BATU',]);
+
+        Category::create(['name' => 'Bintang', 'code' => '1']);
+        Category::create(['name' => 'Non Bintang', 'code' => '2']);
+
+        Indicator::create(['name' => 'TPK', 'code' => 'TPK']);
+        Indicator::create(['name' => 'RLMTA', 'code' => 'RLMTA']);
+        Indicator::create(['name' => 'RLMTN', 'code' => 'RLMTN']);
+        Indicator::create(['name' => 'GPR', 'code' => 'GPR']);
+        Indicator::create(['name' => 'TPTT', 'code' => 'TPTT']);
     }
 }

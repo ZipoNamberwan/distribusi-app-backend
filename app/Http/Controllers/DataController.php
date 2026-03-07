@@ -48,8 +48,8 @@ class DataController extends Controller
         }
 
         if ($request->status) {
-            $search = is_array($request->status) ? $request->status[0] : $request->kode_desa;
-            $records->where('kode_desa', 'like', '%' . $search . '%');
+            $search = is_array($request->status) ? $request->status[0] : $request->status;
+            $records->where('status', 'like', '%' . $search . '%');
         }
 
         $orderColumn = 'created_at';
@@ -57,6 +57,9 @@ class DataController extends Controller
 
         if (!empty($request->sortOrder) && ! empty($request->sortField)) {
             $orderColumn = $request->sortField;
+            if ($request->sortField == 'regency'){
+                $orderColumn = 'kode_kab';
+            }
             $direction = $request->sortOrder === 'ascend' ? 'asc' : 'desc';
             $orderDir = $direction;
         }

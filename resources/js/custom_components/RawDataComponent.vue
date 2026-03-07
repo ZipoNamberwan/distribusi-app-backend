@@ -36,6 +36,7 @@ const columns = [
     {
         title: 'Kabupaten', key: 'regency', width: 140, fixed: 'left',
         filters: (props.regencies ?? []).map(s => ({ text: `${s.long_code} ${s.name}`, value: s.id })),
+        sorter: true,
     },
     {
         title: 'Nama Komersial', dataIndex: 'nama_komersial', width: 200,
@@ -179,7 +180,7 @@ const handleTableChange = (pag, filters, sorter) => {
     run({
         current: pag.current,
         pageSize: pag.pageSize,
-        sortField: sorter.field,
+        sortField: sorter.field ?? sorter.columnKey,
         sortOrder: sorter.order,
         ...filterQuery,
     });

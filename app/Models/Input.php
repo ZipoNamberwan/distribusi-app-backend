@@ -26,7 +26,6 @@ class Input extends Model
     {
         return $this->belongsTo(Year::class, 'tahun');
     }
-//the table input has bulan that FK to months table, can you modify the relation in month() method?   
     public function month()
     {
         return $this->belongsTo(Month::class, 'bulan');
@@ -35,7 +34,6 @@ class Input extends Model
     {        
         return $this->belongsTo(Regency::class, 'kode_kab');
     }
-
     public function syncStatus()
     {        
         return $this->belongsTo(SyncStatus::class, 'sync_status_id');

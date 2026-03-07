@@ -56,6 +56,36 @@ return new class extends Migration
             $table->foreignUuid('user_id')->constrained('users');
             $table->foreignUuid('sync_status_id')->constrained('sync_statuses');
 
+            // Tabulation attributes
+            $table->unsignedInteger('mkts')->default(0);
+            $table->unsignedInteger('mktj')->default(0);
+            $table->decimal('tpk', 12, 6)->default(0);
+            $table->unsignedInteger('mta')->default(0);
+
+            $table->unsignedInteger('ta')->default(0);
+            $table->unsignedInteger('mtnus')->default(0);
+            $table->unsignedInteger('tnus')->default(0);
+
+            $table->decimal('rlmta', 12, 6)->default(0);
+            $table->decimal('rlmtnus', 12, 6)->default(0);
+
+            $table->unsignedInteger('mtgab')->default(0);
+            $table->unsignedInteger('tgab')->default(0);
+            $table->decimal('rlmtgab', 12, 6)->default(0);
+
+            $table->decimal('gpr', 12, 6)->default(0);
+            $table->decimal('tptt', 12, 6)->default(0);
+
+            $table->unsignedTinyInteger('jumlah_hari')->nullable();
+
+            $table->unsignedInteger('error_tpk')->default(0);
+            $table->unsignedInteger('error_rlmta')->default(0);
+            $table->unsignedInteger('error_rlmtnus')->default(0);
+            $table->unsignedInteger('error_gpr')->default(0);
+            $table->unsignedInteger('error_tptt')->default(0);
+            $table->unsignedInteger('error_hari')->default(0);
+            $table->unsignedInteger('jumlah_error')->default(0);
+
             $table->timestamps();
         });
     }
