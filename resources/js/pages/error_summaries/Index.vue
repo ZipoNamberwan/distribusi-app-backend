@@ -79,14 +79,6 @@ const errorColumns = computed(() =>
 
 const columns = computed(() => [
     {
-        title: 'No',
-        key: 'no',
-        width: isSmallScreen.value ? 30 : 50,
-        align: 'center',
-        fixed: 'left',
-        customRender: ({ index }) => h('span', index + 1),
-    },
-    {
         title: 'Kab/Kota',
         key: 'regency',
         sorter: (a, b) => (a.regency?.long_code ?? '').localeCompare(b.regency?.long_code ?? ''),
@@ -188,3 +180,4 @@ onMounted(() => {
         </div>
     </AppLayout>
 </template>
+kjklj
