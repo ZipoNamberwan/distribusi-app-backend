@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\DataController;
+use App\Http\Controllers\EnumerationController;
 use App\Http\Controllers\ErrorSummaryController;
 use App\Http\Controllers\UploadController;
 use Illuminate\Support\Facades\Route;
@@ -27,6 +28,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     Route::get('error-summaries', [ErrorSummaryController::class, 'showErrorSummaryPage'])->name('error_summaries.page.index');
     Route::get('error-summaries/data', [ErrorSummaryController::class, 'getErrorSummaryData'])->name('error_summaries.data.index');
+
+
+    Route::get('enumeration', [EnumerationController::class, 'showEnumerationPage'])->name('enumeration.page.index');
+    Route::get('enumeration/data', [EnumerationController::class, 'getEnumerationData'])->name('enumeration.data.index');
 });
 
 require __DIR__ . '/settings.php';

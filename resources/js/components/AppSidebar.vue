@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Link } from '@inertiajs/vue3';
-import { AlertTriangle, BookOpen, Database, FolderGit2, LayoutGrid, Upload } from 'lucide-vue-next';
+import { AlertTriangle, BookOpen, Database, FolderGit2, LayoutGrid, Upload, ChartBar  } from 'lucide-vue-next';
 import AppLogo from '@/components/AppLogo.vue';
 import NavFooter from '@/components/NavFooter.vue';
 import NavMain from '@/components/NavMain.vue';
@@ -19,6 +19,7 @@ import { index as dataIndex } from '@/routes/data';
 import { index as dataUpload } from '@/routes/upload';
 import { index as indicatorValues } from '@/routes/indicator/table';
 import { index as errorSummaries } from '@/routes/error_summaries/page';
+import { index as enumerationPage } from '@/routes/enumeration/page';
 import type { NavItem } from '@/types';
 
 const mainNavItems: NavItem[] = [
@@ -46,6 +47,11 @@ const mainNavItems: NavItem[] = [
         title: 'Rekap Error',
         href: errorSummaries(),
         icon: AlertTriangle,
+    },
+    {
+        title: 'Progress Pencacahan',
+        href: enumerationPage(),
+        icon: ChartBar,
     },
 ];
 

@@ -4,6 +4,7 @@ namespace App\Jobs;
 
 use App\Exceptions\ImportException;
 use App\Models\Category;
+use App\Models\Enumeration;
 use App\Models\Error as ErrorModel;
 use App\Models\ErrorSummary;
 use App\Models\Indicator;
@@ -84,6 +85,7 @@ class SyncDataJob implements ShouldQueue
 
             $this->calculateIndicatorValues($syncStatus);
             $this->summarizeErrors($syncStatus);
+            $this->calculateEnumerations($syncStatus);
 
             $syncStatus->update([
                 'status' => 'success',
@@ -1714,6 +1716,85 @@ class SyncDataJob implements ShouldQueue
             throw new ImportException(
                 'Error summarization failed: '.$e->getMessage(),
                 'Summarizing error failed'
+            );
+        }
+    }
+
+    /**
+     * Populate the enumerations table for the synced period.
+     *
+     * Realisasi Pencacahan (per regency, per category): COUNT of input rows
+     * matching tahun, bulan, kode_kab and jenis_akomodasi (1=Bintang, 2=Non Bintang).
+     */
+    private function calculateEnumerations(SyncStatus $syncStatus): void
+    {
+        try {
+            $yearId = $syncStatus->year_id;
+            $monthId = $syncStatus->month_id;
+
+            $categories = Category::query()->pluck('id', 'code');
+            $bintangCatId = (int) $categories->get('1');
+            $nonBintangCatId = (int) $categories->get('2');
+
+            // Collect all distinct regencies present in this import
+            $regencyIds = Input::query()
+                ->where('tahun', $yearId)
+                ->where('bulan', $monthId)
+                ->distinct()
+                ->pluck('kode_kab');
+
+            if ($regencyIds->isEmpty()) {
+                return;
+            }
+
+            // COUNT per regency / jenis_akomodasi
+            $aggregates = Input::query()
+                ->select([
+                    'kode_kab as regency_id',
+                    'jenis_akomodasi',
+                    DB::raw('COUNT(*) as count'),
+                ])
+                ->where('tahun', $yearId)
+                ->where('bulan', $monthId)
+                ->whereIn('jenis_akomodasi', [1, 2])
+                ->groupBy('kode_kab', 'jenis_akomodasi')
+                ->get()
+                ->keyBy(fn ($row) => $row->regency_id.'_'.$row->jenis_akomodasi);
+
+            // Delete existing enumerations for this period before re-inserting
+            Enumeration::query()
+                ->where('month_id', $monthId)
+                ->where('year_id', $yearId)
+                ->delete();
+
+            $now = now()->toDateTimeString();
+            $records = [];
+
+            // Cross-join all regencies x both categories so zeros are always recorded
+            foreach ($regencyIds as $regencyId) {
+                foreach ([1 => $bintangCatId, 2 => $nonBintangCatId] as $jenis => $categoryId) {
+                    $row = $aggregates->get($regencyId.'_'.$jenis);
+
+                    $records[] = [
+                        'id' => (string) Str::uuid(),
+                        'regency_id' => (int) $regencyId,
+                        'month_id' => $monthId,
+                        'year_id' => $yearId,
+                        'category_id' => $categoryId,
+                        'value' => (int) ($row->count ?? 0),
+                        'created_at' => $now,
+                        'updated_at' => $now,
+                    ];
+                }
+            }
+
+            foreach (array_chunk($records, 500) as $chunk) {
+                Enumeration::insert($chunk);
+            }
+        } catch (Throwable $e) {
+            throw new ImportException(
+                'Progress calculation failed: '.$e->getMessage(),
+                'Progress calculation failed'
             );
         }
     }
