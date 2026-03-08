@@ -41,17 +41,17 @@ class IndicatorValueCalculationTest extends TestCase
     private function seedIndicatorsAndCategories(): void
     {
         DB::table('indicators')->insert([
-            ['name' => 'TPK', 'code' => 'TPK'],
-            ['name' => 'RLMTA', 'code' => 'RLMTA'],
-            ['name' => 'RLMTN', 'code' => 'RLMTN'],
-            ['name' => 'GPR', 'code' => 'GPR'],
-            ['name' => 'TPTT', 'code' => 'TPTT'],
+            ['name' => 'TPK',   'short_name' => 'TPK',   'code' => 'TPK',   'scale_factor' => 100],
+            ['name' => 'RLMTA', 'short_name' => 'RLMTA', 'code' => 'RLMTA', 'scale_factor' => 1],
+            ['name' => 'RLMTN', 'short_name' => 'RLMTN', 'code' => 'RLMTN', 'scale_factor' => 1],
+            ['name' => 'GPR',   'short_name' => 'GPR',   'code' => 'GPR',   'scale_factor' => 1],
+            ['name' => 'TPTT',  'short_name' => 'TPTT',  'code' => 'TPTT',  'scale_factor' => 100],
         ]);
 
         DB::table('categories')->insert([
-            ['name' => 'Bintang', 'code' => '1'],
-            ['name' => 'Non Bintang', 'code' => '2'],
-            ['name' => 'Total', 'code' => null],
+            ['name' => 'Bintang',     'short_name' => 'B',  'code' => '1'],
+            ['name' => 'Non Bintang', 'short_name' => 'NB', 'code' => '2'],
+            ['name' => 'Total',       'short_name' => 'T',  'code' => null],
         ]);
     }
 
@@ -90,18 +90,17 @@ class IndicatorValueCalculationTest extends TestCase
         $status->refresh();
         $this->assertSame('success', $status->status);
 
-        // 5 indicators × 3 categories = 15 records
-        $this->assertSame(15, IndicatorValue::count());
+        // 5 indicators × 2 categories (Bintang + Non Bintang) = 10 records
+        $this->assertSame(10, IndicatorValue::count());
 
         $indicators = DB::table('indicators')->pluck('id', 'code');
         $categories = DB::table('categories')->pluck('id', 'code');
-        $totalCategoryId = DB::table('categories')->whereNull('code')->value('id');
 
         $regencyId = $lookups['regencyId'];
         $yearId = $lookups['yearId'];
         $monthId = $lookups['monthId'];
 
-        // TPK Bintang = 100 * 6 / 10 = 60.00 (jenis=1)
+        // TPK Bintang: mktj=6, mkts=10
         $tpkBintang = IndicatorValue::where('indicator_id', $indicators['TPK'])
             ->where('category_id', $categories['1'])
             ->where('regency_id', $regencyId)
@@ -109,9 +108,10 @@ class IndicatorValueCalculationTest extends TestCase
             ->where('month_id', $monthId)
             ->first();
         $this->assertNotNull($tpkBintang);
-        $this->assertEqualsWithDelta(60.00, (float) $tpkBintang->value, 0.01);
+        $this->assertSame(6, $tpkBintang->numerator);
+        $this->assertSame(10, $tpkBintang->denominator);
 
-        // TPK Non Bintang = 100 * 5 / 8 = 62.50 (jenis=2)
+        // TPK Non Bintang: mktj=5, mkts=8
         $tpkNonBintang = IndicatorValue::where('indicator_id', $indicators['TPK'])
             ->where('category_id', $categories['2'])
             ->where('regency_id', $regencyId)
@@ -119,9 +119,10 @@ class IndicatorValueCalculationTest extends TestCase
             ->where('month_id', $monthId)
             ->first();
         $this->assertNotNull($tpkNonBintang);
-        $this->assertEqualsWithDelta(62.50, (float) $tpkNonBintang->value, 0.01);
+        $this->assertSame(5, $tpkNonBintang->numerator);
+        $this->assertSame(8, $tpkNonBintang->denominator);
 
-        // RLMTA Bintang = 12 / 10 = 1.20
+        // RLMTA Bintang: mta=12, ta=10
         $rlmtaBintang = IndicatorValue::where('indicator_id', $indicators['RLMTA'])
             ->where('category_id', $categories['1'])
             ->where('regency_id', $regencyId)
@@ -129,9 +130,10 @@ class IndicatorValueCalculationTest extends TestCase
             ->where('month_id', $monthId)
             ->first();
         $this->assertNotNull($rlmtaBintang);
-        $this->assertEqualsWithDelta(1.20, (float) $rlmtaBintang->value, 0.01);
+        $this->assertSame(12, $rlmtaBintang->numerator);
+        $this->assertSame(10, $rlmtaBintang->denominator);
 
-        // RLMTA Non Bintang = 7 / 6 ≈ 1.17
+        // RLMTA Non Bintang: mta=7, ta=6
         $rlmtaNonBintang = IndicatorValue::where('indicator_id', $indicators['RLMTA'])
             ->where('category_id', $categories['2'])
             ->where('regency_id', $regencyId)
@@ -139,9 +141,10 @@ class IndicatorValueCalculationTest extends TestCase
             ->where('month_id', $monthId)
             ->first();
         $this->assertNotNull($rlmtaNonBintang);
-        $this->assertEqualsWithDelta(1.17, (float) $rlmtaNonBintang->value, 0.01);
+        $this->assertSame(7, $rlmtaNonBintang->numerator);
+        $this->assertSame(6, $rlmtaNonBintang->denominator);
 
-        // RLMTN Bintang = 25 / 20 = 1.25
+        // RLMTN Bintang: mtnus=25, tnus=20
         $rlmtnBintang = IndicatorValue::where('indicator_id', $indicators['RLMTN'])
             ->where('category_id', $categories['1'])
             ->where('regency_id', $regencyId)
@@ -149,9 +152,10 @@ class IndicatorValueCalculationTest extends TestCase
             ->where('month_id', $monthId)
             ->first();
         $this->assertNotNull($rlmtnBintang);
-        $this->assertEqualsWithDelta(1.25, (float) $rlmtnBintang->value, 0.01);
+        $this->assertSame(25, $rlmtnBintang->numerator);
+        $this->assertSame(20, $rlmtnBintang->denominator);
 
-        // RLMTN Non Bintang = 17 / 12 ≈ 1.42
+        // RLMTN Non Bintang: mtnus=17, tnus=12
         $rlmtnNonBintang = IndicatorValue::where('indicator_id', $indicators['RLMTN'])
             ->where('category_id', $categories['2'])
             ->where('regency_id', $regencyId)
@@ -159,9 +163,10 @@ class IndicatorValueCalculationTest extends TestCase
             ->where('month_id', $monthId)
             ->first();
         $this->assertNotNull($rlmtnNonBintang);
-        $this->assertEqualsWithDelta(1.42, (float) $rlmtnNonBintang->value, 0.01);
+        $this->assertSame(17, $rlmtnNonBintang->numerator);
+        $this->assertSame(12, $rlmtnNonBintang->denominator);
 
-        // GPR Bintang = 37 / 6 ≈ 6.17
+        // GPR Bintang: mtgab=37, mktj=6
         $gprBintang = IndicatorValue::where('indicator_id', $indicators['GPR'])
             ->where('category_id', $categories['1'])
             ->where('regency_id', $regencyId)
@@ -169,9 +174,10 @@ class IndicatorValueCalculationTest extends TestCase
             ->where('month_id', $monthId)
             ->first();
         $this->assertNotNull($gprBintang);
-        $this->assertEqualsWithDelta(6.17, (float) $gprBintang->value, 0.01);
+        $this->assertSame(37, $gprBintang->numerator);
+        $this->assertSame(6, $gprBintang->denominator);
 
-        // GPR Non Bintang = 24 / 5 = 4.80
+        // GPR Non Bintang: mtgab=24, mktj=5
         $gprNonBintang = IndicatorValue::where('indicator_id', $indicators['GPR'])
             ->where('category_id', $categories['2'])
             ->where('regency_id', $regencyId)
@@ -179,9 +185,10 @@ class IndicatorValueCalculationTest extends TestCase
             ->where('month_id', $monthId)
             ->first();
         $this->assertNotNull($gprNonBintang);
-        $this->assertEqualsWithDelta(4.80, (float) $gprNonBintang->value, 0.01);
+        $this->assertSame(24, $gprNonBintang->numerator);
+        $this->assertSame(5, $gprNonBintang->denominator);
 
-        // TPTT Bintang = 100 * 37 / 20 = 185.00
+        // TPTT Bintang: mtgab=37, bed=20
         $tpttBintang = IndicatorValue::where('indicator_id', $indicators['TPTT'])
             ->where('category_id', $categories['1'])
             ->where('regency_id', $regencyId)
@@ -189,9 +196,10 @@ class IndicatorValueCalculationTest extends TestCase
             ->where('month_id', $monthId)
             ->first();
         $this->assertNotNull($tpttBintang);
-        $this->assertEqualsWithDelta(185.00, (float) $tpttBintang->value, 0.01);
+        $this->assertSame(37, $tpttBintang->numerator);
+        $this->assertSame(20, $tpttBintang->denominator);
 
-        // TPTT Non Bintang = 100 * 24 / 16 = 150.00
+        // TPTT Non Bintang: mtgab=24, bed=16
         $tpttNonBintang = IndicatorValue::where('indicator_id', $indicators['TPTT'])
             ->where('category_id', $categories['2'])
             ->where('regency_id', $regencyId)
@@ -199,60 +207,8 @@ class IndicatorValueCalculationTest extends TestCase
             ->where('month_id', $monthId)
             ->first();
         $this->assertNotNull($tpttNonBintang);
-        $this->assertEqualsWithDelta(150.00, (float) $tpttNonBintang->value, 0.01);
-
-        // Total values (all jenis combined): sum_mktj=11, sum_mkts=18, sum_mta=19, sum_ta=16,
-        //   sum_mtnus=42, sum_tnus=32, sum_mtgab=61, sum_bed=36
-
-        // TPK Total = 100 * 11 / 18 ≈ 61.11
-        $tpkTotal = IndicatorValue::where('indicator_id', $indicators['TPK'])
-            ->where('category_id', $totalCategoryId)
-            ->where('regency_id', $regencyId)
-            ->where('year_id', $yearId)
-            ->where('month_id', $monthId)
-            ->first();
-        $this->assertNotNull($tpkTotal);
-        $this->assertEqualsWithDelta(61.11, (float) $tpkTotal->value, 0.01);
-
-        // RLMTA Total = 19 / 16 ≈ 1.19
-        $rlmtaTotal = IndicatorValue::where('indicator_id', $indicators['RLMTA'])
-            ->where('category_id', $totalCategoryId)
-            ->where('regency_id', $regencyId)
-            ->where('year_id', $yearId)
-            ->where('month_id', $monthId)
-            ->first();
-        $this->assertNotNull($rlmtaTotal);
-        $this->assertEqualsWithDelta(1.19, (float) $rlmtaTotal->value, 0.01);
-
-        // RLMTN Total = 42 / 32 ≈ 1.31
-        $rlmtnTotal = IndicatorValue::where('indicator_id', $indicators['RLMTN'])
-            ->where('category_id', $totalCategoryId)
-            ->where('regency_id', $regencyId)
-            ->where('year_id', $yearId)
-            ->where('month_id', $monthId)
-            ->first();
-        $this->assertNotNull($rlmtnTotal);
-        $this->assertEqualsWithDelta(1.31, (float) $rlmtnTotal->value, 0.01);
-
-        // GPR Total = 61 / 11 ≈ 5.55
-        $gprTotal = IndicatorValue::where('indicator_id', $indicators['GPR'])
-            ->where('category_id', $totalCategoryId)
-            ->where('regency_id', $regencyId)
-            ->where('year_id', $yearId)
-            ->where('month_id', $monthId)
-            ->first();
-        $this->assertNotNull($gprTotal);
-        $this->assertEqualsWithDelta(5.55, (float) $gprTotal->value, 0.01);
-
-        // TPTT Total = 100 * 61 / 36 ≈ 169.44
-        $tpttTotal = IndicatorValue::where('indicator_id', $indicators['TPTT'])
-            ->where('category_id', $totalCategoryId)
-            ->where('regency_id', $regencyId)
-            ->where('year_id', $yearId)
-            ->where('month_id', $monthId)
-            ->first();
-        $this->assertNotNull($tpttTotal);
-        $this->assertEqualsWithDelta(169.44, (float) $tpttTotal->value, 0.01);
+        $this->assertSame(24, $tpttNonBintang->numerator);
+        $this->assertSame(16, $tpttNonBintang->denominator);
     }
 
     public function test_it_returns_null_for_indicator_when_denominator_is_zero(): void
@@ -296,7 +252,8 @@ class IndicatorValueCalculationTest extends TestCase
             ->where('category_id', $categories['1'])
             ->first();
         $this->assertNotNull($tpkBintang);
-        $this->assertNull($tpkBintang->value);
+        $this->assertNull($tpkBintang->numerator);
+        $this->assertNull($tpkBintang->denominator);
     }
 
     public function test_it_does_not_fail_when_indicators_not_seeded_and_no_jenis_data(): void

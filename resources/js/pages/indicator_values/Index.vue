@@ -1,7 +1,7 @@
 <script setup lang="js">
 import AppLayout from '@/layouts/AppLayout.vue';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { ref, computed, onMounted, h } from 'vue';
+import { ref, computed, onMounted, onUnmounted, h } from 'vue';
 import { Head } from '@inertiajs/vue3';
 import { index as dataIndex } from '@/routes/indicator/data';
 import { index as tableIndex } from '@/routes/indicator/table';
@@ -21,25 +21,18 @@ const props = defineProps({
     defaultYear: { type: Number, required: false, default: null },
 });
 
-const INDICATORS = computed(() => props.indicators.map((i) => i.name));
-const visibleIndicators = ref(props.indicators.map((i) => i.name));
+const visibleIndicators = ref(props.indicators.map((i) => i.id));
 
-const numSorter = (key) => (a, b) => (a[key] ?? -Infinity) - (b[key] ?? -Infinity);
+const isSmallScreen = ref(typeof window !== 'undefined' ? window.innerWidth < 640 : false);
 
-const isSmallScreen = ref(window.innerWidth < 640);
-if (typeof window !== 'undefined') {
-    window.addEventListener('resize', () => {
-        isSmallScreen.value = window.innerWidth < 640;
-    });
-}
+const onResize = () => {
+    isSmallScreen.value = window.innerWidth < 640;
+};
+
+onUnmounted(() => window.removeEventListener('resize', onResize));
 
 const colWidth = computed(() => (isSmallScreen.value ? 40 : 90));
 
-const bLabel = computed(() => (isSmallScreen.value ? 'B' : 'Bintang'));
-const nbLabel = computed(() => (isSmallScreen.value ? 'NB' : 'Non Bintang'));
-const tLabel = computed(() => (isSmallScreen.value ? 'T' : 'Total'));
-
-// Light pastel backgrounds per indicator group
 const INDICATOR_COLORS = {
     TPK: '#e6f4ff',
     RLMTA: '#f6ffed',
@@ -48,57 +41,109 @@ const INDICATOR_COLORS = {
     TPTT: '#fff0f6',
 };
 
-const makeChildren = (key, prefix) => {
-    const bg = INDICATOR_COLORS[key];
-    const cell = () => ({ style: { background: bg } });
-    return [
-        { title: bLabel.value, dataIndex: `${prefix}_bintang`, width: colWidth.value, align: 'center', sorter: numSorter(`${prefix}_bintang`), customHeaderCell: cell, customCell: cell },
-        { title: nbLabel.value, dataIndex: `${prefix}_non_bintang`, width: colWidth.value, align: 'center', sorter: numSorter(`${prefix}_non_bintang`), customHeaderCell: cell, customCell: cell },
-        { title: tLabel.value, dataIndex: `${prefix}_total`, width: colWidth.value, align: 'center', sorter: numSorter(`${prefix}_total`), customHeaderCell: cell, customCell: cell },
-    ];
-};
-
 const allIndicatorColumns = computed(() =>
-    INDICATORS.value.map((name) => ({
-        key: name,
-        title: name,
-        customHeaderCell: () => ({ style: { background: INDICATOR_COLORS[name] ?? '#f5f5f5' } }),
-        children: makeChildren(name, name.toLowerCase()),
-    }))
+    props.indicators.map((ind) => {
+        const bg = INDICATOR_COLORS[ind.name] ?? '#f5f5f5';
+        return {
+            key: ind.id,
+            title: ind.short_name ?? ind.name,
+            customHeaderCell: () => ({ style: { background: bg } }),
+            children: [
+                ...ind.categories.map((cat) => {
+                    const key = `${ind.id}_${cat.id}`;
+                    const cell = () => ({ style: { background: bg } });
+                    return {
+                        title: isSmallScreen.value ? (cat.short_name ?? cat.name) : (cat.name ?? cat.short_name),
+                        key,
+                        width: colWidth.value,
+                        align: 'center',
+                        customHeaderCell: cell,
+                        customCell: cell,
+                        sorter: (a, b) => {
+                            const av = a.values?.[key];
+                            const bv = b.values?.[key];
+                            const an = av?.den > 0 ? (ind.scale_factor * av.num) / av.den : -Infinity;
+                            const bn = bv?.den > 0 ? (ind.scale_factor * bv.num) / bv.den : -Infinity;
+                            return an - bn;
+                        },
+                        customRender: ({ record }) => {
+                            const val = record.values?.[key];
+                            if (!val || !val.den) return h('span', '-');
+                            return h('span', ((val.num / val.den) * ind.scale_factor).toFixed(2));
+                        },
+                    };
+                }),
+                {
+                    title: isSmallScreen.value ? 'T' : 'Total',
+                    key: `${ind.id}_total`,
+                    width: colWidth.value,
+                    align: 'center',
+                    customHeaderCell: () => ({ style: { background: bg } }),
+                    customCell: () => ({ style: { background: bg } }),
+                    sorter: (a, b) => {
+                        const calcTotal = (record) => {
+                            let num = 0, den = 0;
+                            for (const cat of ind.categories) {
+                                const v = record.values?.[`${ind.id}_${cat.id}`];
+                                if (v?.den > 0) { num += v.num; den += v.den; }
+                            }
+                            return den > 0 ? (ind.scale_factor * num) / den : -Infinity;
+                        };
+                        return calcTotal(a) - calcTotal(b);
+                    },
+                    customRender: ({ record }) => {
+                        let num = 0, den = 0;
+                        for (const cat of ind.categories) {
+                            const v = record.values?.[`${ind.id}_${cat.id}`];
+                            if (v?.den > 0) { num += v.num; den += v.den; }
+                        }
+                        if (!den) return h('span', '-');
+                        return h('span', ((num / den) * ind.scale_factor).toFixed(2));
+                    },
+                },
+            ],
+        };
+    })
 );
 
 const visibleColumns = computed(() => [
     {
         title: 'Kab/Kota',
-        dataIndex: 'regency',
-        sorter: (a, b) => (a.regency ?? '').localeCompare(b.regency ?? ''),
+        key: 'regency',
+        sorter: (a, b) => (a.regency?.long_code ?? '').localeCompare(b.regency?.long_code ?? ''),
         fixed: 'left',
         width: isSmallScreen.value ? 40 : 200,
         ellipsis: true,
         customRender: ({ record }) =>
             isSmallScreen.value
-                ? h('span', record.regency_long_code ?? '')
-                : h('span', record.regency ?? ''),
+                ? h('span', record.regency?.long_code ?? '')
+                : h('span', `[${record.regency?.long_code}] ${record.regency?.name}`),
     },
     ...allIndicatorColumns.value.filter((col) => visibleIndicators.value.includes(col.key)),
 ]);
 
-const allSelected = computed(() => visibleIndicators.value.length === INDICATORS.value.length);
+const scrollX = computed(() => {
+    const regencyWidth = isSmallScreen.value ? 40 : 200;
+    const categoriesCount = (props.indicators[0]?.categories?.length ?? 2) + 1; // +1 for Total column
+    return regencyWidth + visibleIndicators.value.length * categoriesCount * colWidth.value;
+});
+
+const allSelected = computed(() => visibleIndicators.value.length === props.indicators.length);
 const isIndeterminate = computed(
-    () => visibleIndicators.value.length > 0 && visibleIndicators.value.length < INDICATORS.value.length,
+    () => visibleIndicators.value.length > 0 && visibleIndicators.value.length < props.indicators.length,
 );
 
 const toggleAll = (checked) => {
-    visibleIndicators.value = checked ? [...INDICATORS.value] : [];
+    visibleIndicators.value = checked ? props.indicators.map((i) => i.id) : [];
 };
 
-const toggleIndicator = (key, checked) => {
+const toggleIndicator = (id, checked) => {
     if (checked) {
-        visibleIndicators.value = INDICATORS.value.filter(
-            (k) => visibleIndicators.value.includes(k) || k === key,
-        );
+        visibleIndicators.value = props.indicators
+            .filter((i) => visibleIndicators.value.includes(i.id) || i.id === id)
+            .map((i) => i.id);
     } else {
-        visibleIndicators.value = visibleIndicators.value.filter((k) => k !== key);
+        visibleIndicators.value = visibleIndicators.value.filter((i) => i !== id);
     }
 };
 
@@ -138,7 +183,10 @@ const fetchData = async () => {
     }
 };
 
-onMounted(fetchData);
+onMounted(() => {
+    window.addEventListener('resize', onResize);
+    fetchData();
+});
 </script>
 <template>
 
@@ -163,7 +211,7 @@ onMounted(fetchData);
                                     <template #icon><span>☰</span></template>
                                     Pilih Indikator
                                     <a-tag v-if="isIndeterminate" color="blue" class="ml-1 !py-0 !text-xs">
-                                        {{ visibleIndicators.length }}/{{ INDICATORS.length }}
+                                        {{ visibleIndicators.length }}/{{ props.indicators.length }}
                                     </a-tag>
                                 </a-button>
                                 <template #overlay>
@@ -176,10 +224,10 @@ onMounted(fetchData);
                                             </a-checkbox>
                                         </div>
                                         <div class="flex flex-col gap-1 px-3 py-2">
-                                            <a-checkbox v-for="ind in INDICATORS" :key="ind"
-                                                :checked="visibleIndicators.includes(ind)"
-                                                @change="(e) => toggleIndicator(ind, e.target.checked)">
-                                                {{ ind }}
+                                            <a-checkbox v-for="ind in props.indicators" :key="ind.id"
+                                                :checked="visibleIndicators.includes(ind.id)"
+                                                @change="(e) => toggleIndicator(ind.id, e.target.checked)">
+                                                {{ ind.name }}
                                             </a-checkbox>
                                         </div>
                                     </div>
@@ -208,8 +256,8 @@ onMounted(fetchData);
 
                 <CardContent class="p-0 sm:px-6 sm:pb-6">
                     <div class="overflow-hidden sm:rounded-lg sm:border sm:border-border">
-                        <a-table :scroll="{ x: 1500, y: 560 }" :columns="visibleColumns"
-                            :row-key="record => record.regency_id" :data-source="rows" :loading="loading"
+                        <a-table :scroll="{ x: scrollX, y: 560 }" :columns="visibleColumns"
+                            :row-key="record => record.regency.id" :data-source="rows" :loading="loading"
                             :pagination="false" size="small" bordered />
                     </div>
                 </CardContent>

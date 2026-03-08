@@ -82,14 +82,13 @@ class MasterSeeder extends Seeder
         Regency::create(['short_code' => '78', 'long_code' => '3578', 'id' => '3578', 'name' => 'SURABAYA',]);
         Regency::create(['short_code' => '79', 'long_code' => '3579', 'id' => '3579', 'name' => 'BATU',]);
 
-        Category::create(['name' => 'Bintang', 'code' => '1']);
-        Category::create(['name' => 'Non Bintang', 'code' => '2']);
-        Category::create(['name' => 'Total', 'code' => null]);
+        Category::create(['name' => 'Bintang', 'short_name' => 'B', 'code' => '1']);
+        Category::create(['name' => 'Non Bintang', 'short_name' => 'NB', 'code' => '2']);
 
-        Indicator::create(['name' => 'TPK', 'code' => 'TPK']);
-        Indicator::create(['name' => 'RLMTA', 'code' => 'RLMTA']);
-        Indicator::create(['name' => 'RLMTN', 'code' => 'RLMTN']);
-        Indicator::create(['name' => 'GPR', 'code' => 'GPR']);
-        Indicator::create(['name' => 'TPTT', 'code' => 'TPTT']);
+        Indicator::create(['name' => 'TPK', 'short_name' => 'TPK', 'code' => 'TPK', 'scale_factor' => 100]);
+        Indicator::create(['name' => 'RLMTA', 'short_name' => 'RLMTA', 'code' => 'RLMTA', 'scale_factor' => 1]);
+        Indicator::create(['name' => 'RLMTN', 'short_name' => 'RLMTN', 'code' => 'RLMTN', 'scale_factor' => 1]);
+        Indicator::create(['name' => 'GPR', 'short_name' => 'GPR', 'code' => 'GPR', 'scale_factor' => 1]);
+        Indicator::create(['name' => 'TPTT', 'short_name' => 'TPTT', 'code' => 'TPTT', 'scale_factor' => 100]);
     }
 }

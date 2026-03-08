@@ -14,12 +14,15 @@ return new class extends Migration
         Schema::create('indicators', function (Blueprint $table) {
             $table->id();
             $table->string('name');
+            $table->string('short_name');
+            $table->integer('scale_factor')->default(0);
             $table->string('code')->nullable();
         });
 
         Schema::create('categories', function (Blueprint $table) {
             $table->id();
             $table->string('name');
+            $table->string('short_name');
             $table->string('code')->nullable();
         });
 
@@ -30,7 +33,8 @@ return new class extends Migration
             $table->foreignId('year_id')->constrained('years');
             $table->foreignId('indicator_id')->constrained('indicators');
             $table->foreignId('category_id')->constrained('categories');
-            $table->decimal('value', 8, 2)->nullable(); 
+            $table->integer('numerator')->nullable();
+            $table->integer('denominator')->nullable();
 
             $table->timestamps();
         });

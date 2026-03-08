@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Category;
 use App\Models\Indicator;
 use App\Models\Year;
 use Illuminate\Http\Request;
@@ -94,7 +95,11 @@ class DataController extends Controller
     {
         $months = Month::all();
         $years = Year::all();
-        $indicators = Indicator::all();
+        $categories = Category::whereNotNull('code')->orderBy('id')->get();
+        $indicators = Indicator::orderBy('id')->get()->map(fn($ind) => array_merge(
+            $ind->toArray(),
+            ['categories' => $categories->toArray()]
+        ));
 
         $latestPeriod = DB::table('indicator_values as iv')
             ->join('years as y', 'y.id', '=', 'iv.year_id')
@@ -107,7 +112,7 @@ class DataController extends Controller
         return Inertia::render('indicator_values/Index', [
             'months'       => $months,
             'years'        => $years,
-            'indicators'   => $indicators,
+            'indicators'   => $indicators->values(),
             'defaultMonth' => $latestPeriod?->month_id,
             'defaultYear'  => $latestPeriod?->year_id,
         ]);
@@ -115,71 +120,52 @@ class DataController extends Controller
 
     public function getIndicatorValuesData(Request $request): JsonResponse
     {
-        $base = DB::table('indicator_values as iv')
+        $query = DB::table('indicator_values as iv')
             ->join('regencies as r', 'r.id', '=', 'iv.regency_id')
-            ->join('indicators as i', 'i.id', '=', 'iv.indicator_id')
-            ->join('categories as c', 'c.id', '=', 'iv.category_id');
+            ->select(
+                'r.id as regency_id',
+                'r.name as regency_name',
+                'r.long_code as regency_long_code',
+                'iv.indicator_id',
+                'iv.category_id',
+                'iv.numerator',
+                'iv.denominator',
+            );
 
         if ($request->month) {
-            $base->where('iv.month_id', $request->month);
+            $query->where('iv.month_id', $request->month);
         }
 
         if ($request->year) {
-            $base->where('iv.year_id', $request->year);
+            $query->where('iv.year_id', $request->year);
         }
 
-        $total = (clone $base)->distinct('iv.regency_id')->count('iv.regency_id');
+        $orderDir = (! empty($request->sortOrder) && $request->sortOrder === 'descend') ? 'desc' : 'asc';
 
-        $orderColumn = 'r.long_code';
-        $orderDir = 'asc';
+        $query->orderBy('r.long_code', $orderDir);
 
-        if (! empty($request->sortField) && ! empty($request->sortOrder)) {
-            if ($request->sortField === 'regency') {
-                $orderColumn = 'r.long_code';
-            }
-            $orderDir = $request->sortOrder === 'ascend' ? 'asc' : 'desc';
-        }
+        $rows = $query->get();
 
-        $query = (clone $base)
-            ->selectRaw("
-                r.id        AS regency_id,
-                r.long_code AS regency_long_code,
-                r.name      AS regency_name,
+        $total = $rows->unique('regency_id')->count();
 
-                MAX(CASE WHEN i.code = 'TPK'   AND c.code = '1'    THEN iv.value END) AS tpk_bintang,
-                MAX(CASE WHEN i.code = 'TPK'   AND c.code = '2'    THEN iv.value END) AS tpk_non_bintang,
-                MAX(CASE WHEN i.code = 'TPK'   AND c.code IS NULL  THEN iv.value END) AS tpk_total,
+        $data = $rows->groupBy('regency_id')->map(function ($regencyRows) {
+            $first = $regencyRows->first();
 
-                MAX(CASE WHEN i.code = 'RLMTA' AND c.code = '1'    THEN iv.value END) AS rlmta_bintang,
-                MAX(CASE WHEN i.code = 'RLMTA' AND c.code = '2'    THEN iv.value END) AS rlmta_non_bintang,
-                MAX(CASE WHEN i.code = 'RLMTA' AND c.code IS NULL  THEN iv.value END) AS rlmta_total,
+            $values = $regencyRows->mapWithKeys(fn($row) => [
+                "{$row->indicator_id}_{$row->category_id}" => [
+                    'num' => $row->numerator,
+                    'den' => $row->denominator,
+                ],
+            ]);
 
-                MAX(CASE WHEN i.code = 'RLMTN' AND c.code = '1'    THEN iv.value END) AS rlmtn_bintang,
-                MAX(CASE WHEN i.code = 'RLMTN' AND c.code = '2'    THEN iv.value END) AS rlmtn_non_bintang,
-                MAX(CASE WHEN i.code = 'RLMTN' AND c.code IS NULL  THEN iv.value END) AS rlmtn_total,
-
-                MAX(CASE WHEN i.code = 'GPR'   AND c.code = '1'    THEN iv.value END) AS gpr_bintang,
-                MAX(CASE WHEN i.code = 'GPR'   AND c.code = '2'    THEN iv.value END) AS gpr_non_bintang,
-                MAX(CASE WHEN i.code = 'GPR'   AND c.code IS NULL  THEN iv.value END) AS gpr_total,
-
-                MAX(CASE WHEN i.code = 'TPTT'  AND c.code = '1'    THEN iv.value END) AS tptt_bintang,
-                MAX(CASE WHEN i.code = 'TPTT'  AND c.code = '2'    THEN iv.value END) AS tptt_non_bintang,
-                MAX(CASE WHEN i.code = 'TPTT'  AND c.code IS NULL  THEN iv.value END) AS tptt_total
-            ")
-            ->groupBy('r.id', 'r.long_code', 'r.name')
-            ->orderBy($orderColumn, $orderDir);
-
-        if ($request->length && (int) $request->length !== -1) {
-            $query->skip((int) ($request->start ?? 0))->take((int) $request->length);
-        }
-
-        $offset = (int) ($request->start ?? 0);
-
-        $data = $query->get()->map(function ($row, $index) use ($offset) {
-            $arr = (array) $row;
-            $arr['regency'] = '['.($arr['regency_long_code'] ?? '').'] '.($arr['regency_name'] ?? '');
-
-            return array_merge(['no' => $offset + $index + 1], $arr);
+            return [
+                'regency' => [
+                    'id'        => $first->regency_id,
+                    'name'      => $first->regency_name,
+                    'long_code' => $first->regency_long_code,
+                ],
+                'values' => $values,
+            ];
         })->values();
 
         return response()->json(['data' => $data, 'total' => $total]);
