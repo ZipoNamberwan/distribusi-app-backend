@@ -4,9 +4,12 @@ namespace App\Jobs;
 
 use App\Exceptions\ImportException;
 use App\Models\Category;
+use App\Models\Error as ErrorModel;
+use App\Models\ErrorSummary;
 use App\Models\Indicator;
 use App\Models\IndicatorValue;
 use App\Models\Input;
+use App\Models\Month;
 use App\Models\Regency;
 use App\Models\SyncStatus;
 use App\Models\Tabulation;
@@ -80,6 +83,7 @@ class SyncDataJob implements ShouldQueue
                 ->delete();
 
             $this->calculateIndicatorValues($syncStatus);
+            $this->summarizeErrors($syncStatus);
 
             $syncStatus->update([
                 'status' => 'success',
@@ -162,6 +166,7 @@ class SyncDataJob implements ShouldQueue
 
         $maps = $this->buildInputForeignKeyMaps();
         $indexes = $this->requiredInputForeignKeyIndexes($columnMap);
+        $monthDay = (int) ($maps['months'][$syncStatus->month_id] ?? 0);
 
         $this->validateInputForeignKeysInCsv($file, $columnMap, $indexes, $maps);
 
@@ -280,7 +285,7 @@ class SyncDataJob implements ShouldQueue
             $record = $this->resolveInputForeignKeysOrThrow($record, $maps, 'CSV row '.$rowNumber);
 
             try {
-                $record = $this->calculateTabulation($record);
+                $record = $this->calculateTabulation($record, $monthDay);
             } catch (Throwable $calcEx) {
                 throw new ImportException(
                     'Error calculating tabulation at CSV row '.$rowNumber.': '.$calcEx->getMessage(),
@@ -373,6 +378,7 @@ class SyncDataJob implements ShouldQueue
 
         $maps = $this->buildInputForeignKeyMaps();
         $indexes = $this->requiredInputForeignKeyIndexes($columnMap);
+        $monthDay = (int) ($maps['months'][$syncStatus->month_id] ?? 0);
 
         $this->validateInputForeignKeysInXlsx($reader, $absolutePath, $totalRows, $columnMap, $indexes, $maps);
 
@@ -495,7 +501,7 @@ class SyncDataJob implements ShouldQueue
                 $record = $this->resolveInputForeignKeysOrThrow($record, $maps, 'XLSX row '.$rowNumber);
 
                 try {
-                    $record = $this->calculateTabulation($record);
+                    $record = $this->calculateTabulation($record, $monthDay);
                 } catch (Throwable $calcEx) {
                     throw new ImportException(
                         'Error calculating tabulation at XLSX row '.$rowNumber.': '.$calcEx->getMessage(),
@@ -524,15 +530,19 @@ class SyncDataJob implements ShouldQueue
     }
 
     /**
-     * @return array{regencies: array<string, int>}
+     * @return array{regencies: array<string, int>, months: array<int|string, int>}
      */
     private function buildInputForeignKeyMaps(): array
     {
         /** @var array<string, int> $regencies */
         $regencies = Regency::query()->pluck('id', 'short_code')->all();
 
+        /** @var array<int|string, int> $months */
+        $months = Month::query()->pluck('day', 'id')->all();
+
         return [
             'regencies' => $regencies,
+            'months' => $months,
         ];
     }
 
@@ -851,7 +861,7 @@ class SyncDataJob implements ShouldQueue
      * @param  array<string, mixed>  $record
      * @return array<string, mixed>
      */
-    private function calculateTabulation(array $record): array
+    private function calculateTabulation(array $record, int $monthDay = 0): array
     {
         $room = isset($record['room']) ? (float) $record['room'] : null;
         $bed = isset($record['bed']) ? (float) $record['bed'] : null;
@@ -990,8 +1000,9 @@ class SyncDataJob implements ShouldQueue
             }
         }
 
-        // Error Hari: 0 for now
-        $errorHari = 0;
+        // Error Hari: 1 if input day differs from the month's expected day count
+        $inputDay = isset($record['day']) ? (int) $record['day'] : 0;
+        $errorHari = ($monthDay > 0 && $inputDay !== $monthDay) ? 1 : 0;
 
         $jumlahError = $errorTpk + $errorRlmta + $errorRlmtnus + $errorGpr + $errorTptt + $errorHari;
 
@@ -1610,6 +1621,101 @@ class SyncDataJob implements ShouldQueue
             'created_at' => $now,
             'updated_at' => $now,
         ];
+    }
+
+    /**
+     * Populate the error_summaries table for the synced period.
+     *
+     * Error Hotel   (per regency, per category): COUNT of input rows where jumlah_error > 0
+     * Error Indikator (per regency, per category): SUM of jumlah_error across all input rows
+     */
+    private function summarizeErrors(SyncStatus $syncStatus): void
+    {
+        try {
+            $yearId = $syncStatus->year_id;
+            $monthId = $syncStatus->month_id;
+
+            $hotelErrorId = ErrorModel::query()->where('code', 'Hotel')->value('id');
+            $indikatorErrorId = ErrorModel::query()->where('code', 'Indikator')->value('id');
+            $categories = Category::query()->pluck('id', 'code'); // ['1' => id, '2' => id]
+            $bintangCatId = (int) $categories->get('1');
+            $nonBintangCatId = (int) $categories->get('2');
+
+            // Collect all distinct regencies present in this import
+            $regencyIds = Input::query()
+                ->where('tahun', $yearId)
+                ->where('bulan', $monthId)
+                ->distinct()
+                ->pluck('kode_kab');
+
+            if ($regencyIds->isEmpty()) {
+                return;
+            }
+
+            // Aggregate per regency / jenis_akomodasi — only combinations that exist in input
+            $aggregates = Input::query()
+                ->select([
+                    'kode_kab as regency_id',
+                    'jenis_akomodasi',
+                    DB::raw('COUNT(CASE WHEN jumlah_error > 0 THEN 1 END) as hotel_error_count'),
+                    DB::raw('SUM(jumlah_error) as indikator_error_sum'),
+                ])
+                ->where('tahun', $yearId)
+                ->where('bulan', $monthId)
+                ->whereIn('jenis_akomodasi', [1, 2])
+                ->groupBy('kode_kab', 'jenis_akomodasi')
+                ->get()
+                ->keyBy(fn ($row) => $row->regency_id.'_'.$row->jenis_akomodasi);
+
+            // Delete existing summaries for this period before re-inserting
+            ErrorSummary::query()
+                ->where('month_id', $monthId)
+                ->where('year_id', $yearId)
+                ->delete();
+
+            $now = now()->toDateTimeString();
+            $records = [];
+
+            // Cross-join all regencies × both categories so zeros are always recorded
+            foreach ($regencyIds as $regencyId) {
+                foreach ([1 => $bintangCatId, 2 => $nonBintangCatId] as $jenis => $categoryId) {
+                    $row = $aggregates->get($regencyId.'_'.$jenis);
+
+                    $records[] = [
+                        'id' => (string) Str::uuid(),
+                        'regency_id' => (int) $regencyId,
+                        'month_id' => $monthId,
+                        'year_id' => $yearId,
+                        'error_id' => $hotelErrorId,
+                        'category_id' => $categoryId,
+                        'value' => (int) ($row->hotel_error_count ?? 0),
+                        'created_at' => $now,
+                        'updated_at' => $now,
+                    ];
+
+                    $records[] = [
+                        'id' => (string) Str::uuid(),
+                        'regency_id' => (int) $regencyId,
+                        'month_id' => $monthId,
+                        'year_id' => $yearId,
+                        'error_id' => $indikatorErrorId,
+                        'category_id' => $categoryId,
+                        'value' => (int) ($row->indikator_error_sum ?? 0),
+                        'created_at' => $now,
+                        'updated_at' => $now,
+                    ];
+                }
+            }
+
+            foreach (array_chunk($records, 500) as $chunk) {
+                ErrorSummary::insert($chunk);
+            }
+        } catch (Throwable $e) {
+            throw new ImportException(
+                'Error summarization failed: '.$e->getMessage(),
+                'Summarizing error failed'
+            );
+        }
     }
 
     private function normalizeSpreadsheetId(string $spreadsheetId): string

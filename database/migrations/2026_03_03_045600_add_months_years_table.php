@@ -15,6 +15,7 @@ return new class extends Migration
             $table->id()->primary();
             $table->string('code');
             $table->string('name');
+            $table->integer('day');
         });
 
         Schema::create('years', function (Blueprint $table) {

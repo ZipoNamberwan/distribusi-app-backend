@@ -33,6 +33,16 @@ const props = defineProps({
         required: true,
         default: () => []
     },
+    defaultMonth: {
+        type: Number,
+        required: false,
+        default: null,
+    },
+    defaultYear: {
+        type: Number,
+        required: false,
+        default: null,
+    },
 });
 
 const breadcrumbs = [
@@ -48,8 +58,8 @@ const breadcrumbs = [
 
 const form = useForm({
     target: 'input',
-    year: null,
-    month: null,
+    year: props.defaultYear,
+    month: props.defaultMonth,
     file: null,
 });
 
@@ -67,7 +77,10 @@ const rules = {
     ],
 }
 
+const fileList = ref([]);
+
 const onUploadChange = (info) => {
+    fileList.value = info.fileList;
     if (!info.fileList || info.fileList.length === 0) {
         form.file = null;
         return;
@@ -78,6 +91,7 @@ const onUploadChange = (info) => {
 
 const onUploadRemove = () => {
     form.file = null;
+    fileList.value = [];
     return true;
 };
 
@@ -88,7 +102,13 @@ const submit = () => {
             form.post(storeUpload().url, {
                 forceFormData: true,
                 preserveScroll: true,
-                onSuccess: () => form.reset(),
+                onSuccess: () => {
+                    form.reset();
+                    form.month = props.defaultMonth;
+                    form.year = props.defaultYear;
+                    fileList.value = [];
+                    formRef.value.resetFields();
+                },
             });
         })
         .catch(() => {
@@ -125,7 +145,8 @@ watch(
                                 <p class="font-semibold">Raw Data</p>
                                 <p class="text-muted-foreground text-sm">Lihat raw data yang sudah terupload</p>
                             </div>
-                            <RawDataComponent :regencies="props.regencies" :months="props.months" :years="props.years" />
+                            <RawDataComponent :regencies="props.regencies" :months="props.months"
+                                :years="props.years" />
                         </div>
                     </a-card>
                 </a-col>
@@ -140,7 +161,7 @@ watch(
                         </div>
                     </a-card>
                 </a-col>
-                <a-col :xs="24" :sm="24"> 
+                <a-col :xs="24" :sm="24">
                     <a-card title="Upload Excel Data">
                         <a-typography-paragraph type="secondary" :style="{ marginTop: '-4px' }">
                             Upload input data pada form berikut. Pastikan file yang diunggah memiliki format .xlsx dan
@@ -173,7 +194,7 @@ watch(
                             <a-form-item name="file" label="File (.xlsx)" :wrapper-col="{ span: 6 }"
                                 :validate-status="form.errors.file ? 'error' : undefined" :help="form.errors.file">
                                 <a-upload-dragger :before-upload="() => false" :max-count="1" :multiple="false"
-                                    accept=".xlsx" @change="onUploadChange" @remove="onUploadRemove">
+                                    accept=".xlsx" v-model:fileList="fileList" @change="onUploadChange" @remove="onUploadRemove">
                                     <p class="ant-upload-text">Click or drag file to this area</p>
                                     <p class="ant-upload-hint">Only .xlsx files are supported.</p>
                                 </a-upload-dragger>

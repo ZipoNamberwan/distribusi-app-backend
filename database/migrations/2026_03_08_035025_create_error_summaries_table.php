@@ -22,6 +22,8 @@ return new class extends Migration
             $table->foreignId('regency_id')->constrained('regencies');
             $table->foreignId('month_id')->constrained('months');
             $table->foreignId('year_id')->constrained('years');
+            $table->foreignId('error_id')->constrained('errors');
+            $table->foreignId('category_id')->constrained('categories');
             $table->integer('value')->default(0);
 
             $table->timestamps();

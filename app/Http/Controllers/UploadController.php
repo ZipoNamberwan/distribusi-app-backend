@@ -4,14 +4,15 @@ namespace App\Http\Controllers;
 
 use App\Jobs\SyncDataJob;
 use App\Models\Month;
+use App\Models\Regency;
 use App\Models\SyncStatus;
 use App\Models\User;
 use App\Models\Year;
-use App\Models\Regency;
 use Exception;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -26,6 +27,12 @@ class UploadController extends Controller
         $currentYear = now()->year;
         $years = Year::whereIn('name', [$currentYear, $currentYear - 1])->orderByDesc('name')->get();
 
+        $prev = Carbon::now()->subMonth();
+        $prevMonthCode = str_pad((string) $prev->month, 2, '0', STR_PAD_LEFT);
+
+        $defaultMonth = Month::where('code', $prevMonthCode)->value('id');
+        $defaultYear = Year::where('name', (string) $prev->year)->value('id');
+
         $statuses = [
             ['title' => 'Start', 'value' => 'start', 'color' => 'default'],
             ['title' => 'Loading', 'value' => 'loading', 'color' => 'processing'],
@@ -39,7 +46,9 @@ class UploadController extends Controller
             'months' => $months,
             'years' => $years,
             'statuses' => $statuses,
-            'regencies' => $regencies
+            'regencies' => $regencies,
+            'defaultMonth' => $defaultMonth,
+            'defaultYear' => $defaultYear,
         ]);
     }
 
@@ -115,7 +124,7 @@ class UploadController extends Controller
         $orderColumn = 'created_at';
         $orderDir = 'desc';
 
-        if (!empty($request->sortOrder) && ! empty($request->sortField)) {
+        if (! empty($request->sortOrder) && ! empty($request->sortField)) {
             $orderColumn = $request->sortField;
             $direction = $request->sortOrder === 'ascend' ? 'asc' : 'desc';
             $orderDir = $direction;
