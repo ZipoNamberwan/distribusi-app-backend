@@ -29,8 +29,8 @@ return new class extends Migration
             $table->string('short_code');
             $table->string('long_code');
             $table->string('name');
+            $table->foreignId(column: 'parent_id')->nullable()->constrained('regencies');
         });
-
     }
 
     /**

@@ -1,12 +1,10 @@
 <script setup lang="js">
-import { ref, watch, computed } from 'vue';
+import { ref, computed, watch } from 'vue';
 import { usePagination } from 'vue-request';
 import { index as rawDataIndex } from '@/routes/data/raw';
 import moment from 'moment';
 import { SearchOutlined, ClearOutlined } from '@ant-design/icons-vue';
 
-
-const open = ref(false);
 const lastParams = ref({});
 const searchInput = ref();
 const tableKey = ref(0);
@@ -28,6 +26,11 @@ const props = defineProps({
         type: Array,
         required: false,
         default: () => []
+    },
+    open: {
+        type: Boolean,
+        required: true,
+        default: () => false
     },
 });
 
@@ -153,6 +156,7 @@ const queryData = async (params = {}) => {
 
     return { list: payload.data, total: payload.total };
 };
+
 const {
     data: dataSource,
     run,
@@ -174,6 +178,9 @@ const pagination = computed(() => ({
     showSizeChanger: true,
     pageSizeOptions: ['10', '20', '50'],
 }));
+
+const open = computed(() => (props.open));
+
 const handleTableChange = (pag, filters, sorter) => {
     const filterQuery = normalizeTableFilters(filters);
 
@@ -186,7 +193,7 @@ const handleTableChange = (pag, filters, sorter) => {
     });
 };
 
-const handleRefresh = () => run({ ...lastParams.value });
+// const handleRefresh = () => run({ ...lastParams.value });
 
 const handlePeriodFilter = () => {
     const { month: _month, year: _year, ...rest } = lastParams.value;
@@ -224,81 +231,74 @@ const handleReset = clearFilters => {
 </script>
 
 <template>
-    <div>
-        <a-button @click="open = true">
-            Lihat
-        </a-button>
-        <a-modal style="top: 20px" v-model:open="open" title="Raw Data Terupload" :footer="null" width="90%">
 
-            <div class="flex flex-wrap items-center gap-3 mb-4 p-3 bg-gray-50 rounded-lg border border-gray-200">
-                <span class="text-sm font-medium text-gray-500 shrink-0">Filter Periode</span>
-                <a-select v-model:value="selectedMonth" placeholder="Semua Bulan" allow-clear class="w-44"
-                    @change="handlePeriodFilter">
-                    <a-select-option v-for="month in props.months" :key="month.id" :value="month.id">
-                        {{ month.name }}
-                    </a-select-option>
-                </a-select>
-                <a-select v-model:value="selectedYear" placeholder="Semua Tahun" allow-clear class="w-44"
-                    @change="handlePeriodFilter">
-                    <a-select-option v-for="year in props.years" :key="year.id" :value="year.id">
-                        {{ year.name }}
-                    </a-select-option>
-                </a-select>
-                <a-tooltip title="Reset Semua Filter">
-                    <a-button @click="handleResetAll">
-                        <template #icon>
-                            <ClearOutlined />
-                        </template>
-                    </a-button>
-                </a-tooltip>
-            </div>
-
-            <a-table :key="tableKey" :scroll="{ x: 1600, y: 600 }" :columns="columns" :row-key="record => record.id"
-                :data-source="dataSource?.list ?? []" :pagination="pagination" :loading="loading"
-                @change="handleTableChange" size="small">
-                <template #bodyCell="{ column, text, record }">
-                    <template v-if="column.key === 'periode'">
-                        <span>{{ record.month?.name }} {{ record.year?.name }}</span>
-                    </template>
-                    <template v-if="column.key === 'month'">
-                        <span>{{ record.month?.name }}</span>
-                    </template>
-                    <template v-else-if="column.key === 'year'">
-                        <span>{{ record.year?.name }}</span>
-                    </template>
-                    <template v-else-if="column.key === 'regency'">
-                        <span>[{{ record.regency?.long_code }}] {{ record.regency?.name }}</span>
-                    </template>
-                    <template v-else-if="column.dataIndex === 'kode_kab'">
-                        <span>{{ record.regency?.short_code }}</span>
-                    </template>
-                    <template v-else-if="column.key === 'created_at'">
-                        <span :title="moment(text).format('DD MMM YYYY HH:mm:ss')">{{ moment(text).fromNow() }}</span>
-                    </template>
+    <div class="flex flex-wrap items-center gap-3 mb-4 p-3 bg-gray-50 rounded-lg border border-gray-200">
+        <span class="text-sm font-medium text-gray-500 shrink-0">Filter Periode</span>
+        <a-select v-model:value="selectedMonth" placeholder="Semua Bulan" allow-clear class="w-44"
+            @change="handlePeriodFilter">
+            <a-select-option v-for="month in props.months" :key="month.id" :value="month.id">
+                {{ month.name }}
+            </a-select-option>
+        </a-select>
+        <a-select v-model:value="selectedYear" placeholder="Semua Tahun" allow-clear class="w-44"
+            @change="handlePeriodFilter">
+            <a-select-option v-for="year in props.years" :key="year.id" :value="year.id">
+                {{ year.name }}
+            </a-select-option>
+        </a-select>
+        <a-tooltip title="Reset Semua Filter">
+            <a-button @click="handleResetAll">
+                <template #icon>
+                    <ClearOutlined />
                 </template>
-
-                <template #customFilterDropdown="{ setSelectedKeys, selectedKeys, confirm, clearFilters, column }">
-                    <div style="padding: 8px">
-                        <a-input ref="searchInput" :placeholder="`Search ${column.dataIndex}`" :value="selectedKeys[0]"
-                            style="width: 188px; margin-bottom: 8px; display: block"
-                            @change="e => setSelectedKeys(e.target.value ? [e.target.value] : [])"
-                            @pressEnter="handleSearch(selectedKeys, confirm, column.dataIndex)" />
-                        <a-button type="primary" size="small" style="width: 90px; margin-right: 8px"
-                            @click="handleSearch(selectedKeys, confirm, column.dataIndex)">
-                            <template #icon>
-                                <SearchOutlined />
-                            </template>
-                            Search
-                        </a-button>
-                        <a-button size="small" style="width: 90px" @click="handleReset(clearFilters)">
-                            Reset
-                        </a-button>
-                    </div>
-                </template>
-                <template #customFilterIcon="{ filtered }">
-                    <search-outlined :style="{ color: filtered ? '#108ee9' : undefined }" />
-                </template>
-            </a-table>
-        </a-modal>
+            </a-button>
+        </a-tooltip>
     </div>
+
+    <a-table :key="tableKey" :scroll="{ x: 1600, y: 600 }" :columns="columns" :row-key="record => record.id"
+        :data-source="dataSource?.list ?? []" :pagination="pagination" :loading="loading" @change="handleTableChange"
+        size="small">
+        <template #bodyCell="{ column, text, record }">
+            <template v-if="column.key === 'periode'">
+                <span>{{ record.month?.name }} {{ record.year?.name }}</span>
+            </template>
+            <template v-if="column.key === 'month'">
+                <span>{{ record.month?.name }}</span>
+            </template>
+            <template v-else-if="column.key === 'year'">
+                <span>{{ record.year?.name }}</span>
+            </template>
+            <template v-else-if="column.key === 'regency'">
+                <span>[{{ record.regency?.long_code }}] {{ record.regency?.name }}</span>
+            </template>
+            <template v-else-if="column.dataIndex === 'kode_kab'">
+                <span>{{ record.regency?.short_code }}</span>
+            </template>
+            <template v-else-if="column.key === 'created_at'">
+                <span :title="moment(text).format('DD MMM YYYY HH:mm:ss')">{{ moment(text).fromNow() }}</span>
+            </template>
+        </template>
+
+        <template #customFilterDropdown="{ setSelectedKeys, selectedKeys, confirm, clearFilters, column }">
+            <div style="padding: 8px">
+                <a-input ref="searchInput" :placeholder="`Search ${column.dataIndex}`" :value="selectedKeys[0]"
+                    style="width: 188px; margin-bottom: 8px; display: block"
+                    @change="e => setSelectedKeys(e.target.value ? [e.target.value] : [])"
+                    @pressEnter="handleSearch(selectedKeys, confirm, column.dataIndex)" />
+                <a-button type="primary" size="small" style="width: 90px; margin-right: 8px"
+                    @click="handleSearch(selectedKeys, confirm, column.dataIndex)">
+                    <template #icon>
+                        <SearchOutlined />
+                    </template>
+                    Search
+                </a-button>
+                <a-button size="small" style="width: 90px" @click="handleReset(clearFilters)">
+                    Reset
+                </a-button>
+            </div>
+        </template>
+        <template #customFilterIcon="{ filtered }">
+            <search-outlined :style="{ color: filtered ? '#108ee9' : undefined }" />
+        </template>
+    </a-table>
 </template>

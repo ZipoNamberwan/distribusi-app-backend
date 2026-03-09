@@ -2,7 +2,7 @@
 
 namespace Tests\Feature;
 
-use App\Jobs\SyncDataJob;
+use App\Jobs\InputJob;
 use App\Models\Input;
 use App\Models\SyncStatus;
 use App\Models\User;
@@ -15,7 +15,7 @@ use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 use Tests\TestCase;
 
-class SyncDataJobCsvImportTest extends TestCase
+class InputJobCsvImportTest extends TestCase
 {
     use RefreshDatabase;
 
@@ -80,7 +80,7 @@ class SyncDataJobCsvImportTest extends TestCase
             'year_id' => $lookups['yearId'],
         ]);
 
-        $job = new SyncDataJob($status);
+        $job = new InputJob($status);
         $job->handle(app(GoogleSheetService::class));
 
         $this->assertSame(2, Input::count());
@@ -123,7 +123,7 @@ class SyncDataJobCsvImportTest extends TestCase
             'year_id' => $lookups['yearId'],
         ]);
 
-        $job = new SyncDataJob($status);
+        $job = new InputJob($status);
 
         try {
             $job->handle(app(GoogleSheetService::class));
@@ -153,7 +153,7 @@ class SyncDataJobCsvImportTest extends TestCase
             'year_id' => $lookups['yearId'],
         ]);
 
-        $job = new SyncDataJob($status);
+        $job = new InputJob($status);
 
         try {
             $job->handle(app(GoogleSheetService::class));
@@ -205,7 +205,7 @@ class SyncDataJobCsvImportTest extends TestCase
             'year_id' => $lookups['yearId'],
         ]);
 
-        $job = new SyncDataJob($status);
+        $job = new InputJob($status);
         $job->handle(app(GoogleSheetService::class));
 
         $this->assertSame(2, Input::count());
@@ -238,7 +238,7 @@ class SyncDataJobCsvImportTest extends TestCase
             'year_id' => $lookups['yearId'],
         ]);
 
-        $job = new SyncDataJob($status);
+        $job = new InputJob($status);
 
         try {
             $job->handle(app(GoogleSheetService::class));
@@ -300,7 +300,7 @@ class SyncDataJobCsvImportTest extends TestCase
             'year_id' => $lookups['yearId'],
         ]);
 
-        $job = new SyncDataJob($newStatus);
+        $job = new InputJob($newStatus);
         $job->handle(app(GoogleSheetService::class));
 
         // Only the newly imported row should exist; the stale row is deleted

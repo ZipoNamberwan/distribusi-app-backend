@@ -2,7 +2,7 @@
 
 namespace Tests\Feature;
 
-use App\Jobs\SyncDataJob;
+use App\Jobs\InputJob;
 use App\Models\IndicatorValue;
 use App\Models\SyncStatus;
 use App\Models\User;
@@ -84,7 +84,7 @@ class IndicatorValueCalculationTest extends TestCase
             'year_id' => $lookups['yearId'],
         ]);
 
-        $job = new SyncDataJob($status);
+        $job = new InputJob($status);
         $job->handle(app(GoogleSheetService::class));
 
         $status->refresh();
@@ -239,7 +239,7 @@ class IndicatorValueCalculationTest extends TestCase
             'year_id' => $lookups['yearId'],
         ]);
 
-        $job = new SyncDataJob($status);
+        $job = new InputJob($status);
         $job->handle(app(GoogleSheetService::class));
 
         $status->refresh();
@@ -283,7 +283,7 @@ class IndicatorValueCalculationTest extends TestCase
             'year_id' => $lookups['yearId'],
         ]);
 
-        $job = new SyncDataJob($status);
+        $job = new InputJob($status);
         $job->handle(app(GoogleSheetService::class));
 
         $status->refresh();
@@ -317,7 +317,7 @@ class IndicatorValueCalculationTest extends TestCase
             'year_id' => $lookups['yearId'],
         ]);
 
-        $job = new SyncDataJob($status);
+        $job = new InputJob($status);
 
         try {
             $job->handle(app(GoogleSheetService::class));

@@ -8,6 +8,7 @@ use App\Models\Year;
 use Illuminate\Http\Request;
 use App\Models\Input;
 use App\Models\Month;
+use App\Models\SyncStatus;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -169,5 +170,44 @@ class DataController extends Controller
         })->values();
 
         return response()->json(['data' => $data, 'total' => $total]);
+    }
+
+
+    public function getUploadStatusData($type, Request $request): JsonResponse
+    {
+        $records = null;
+
+        $records = SyncStatus::with(['month', 'year'])->where('type', $type ?? 'input');
+
+        if ($request->status) {
+            $records->whereIn('status', $request->status);
+        }
+
+        $orderColumn = 'created_at';
+        $orderDir = 'desc';
+
+        if (! empty($request->sortOrder) && ! empty($request->sortField)) {
+            $orderColumn = $request->sortField;
+            $direction = $request->sortOrder === 'ascend' ? 'asc' : 'desc';
+            $orderDir = $direction;
+        }
+
+        $recordsTotal = $records->count();
+
+        // Pagination
+        if ($request->length != -1) {
+            $records->skip($request->start)
+                ->take($request->length);
+        }
+
+        // Order
+        $records->orderBy($orderColumn, $orderDir);
+
+        $data = $records->get();
+
+        return response()->json([
+            'total' => $recordsTotal,
+            'data' => $data,
+        ]);
     }
 }

@@ -34,7 +34,7 @@ const mainNavItems: NavItem[] = [
         icon: Database,
     },
     {
-        title: 'Upload Excel',
+        title: 'Upload Data',
         href: dataUpload(),
         icon: Upload,
     },

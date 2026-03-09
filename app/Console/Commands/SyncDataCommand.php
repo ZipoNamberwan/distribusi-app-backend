@@ -2,7 +2,7 @@
 
 namespace App\Console\Commands;
 
-use App\Jobs\SyncDataJob;
+use App\Jobs\InputJob;
 use Illuminate\Console\Command;
 
 class SyncDataCommand extends Command
@@ -26,7 +26,7 @@ class SyncDataCommand extends Command
      */
     public function handle(): int
     {
-        SyncDataJob::dispatch();
+        InputJob::dispatch();
 
         $this->info('Sync job dispatched.');
 

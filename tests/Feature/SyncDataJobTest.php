@@ -2,7 +2,7 @@
 
 namespace Tests\Feature;
 
-use App\Jobs\SyncDataJob;
+use App\Jobs\InputJob;
 use App\Models\Input;
 use App\Models\SyncStatus;
 use App\Services\GoogleSheetService;
@@ -12,7 +12,7 @@ use Illuminate\Support\Str;
 use Mockery;
 use Tests\TestCase;
 
-class SyncDataJobTest extends TestCase
+class InputJobTest extends TestCase
 {
     use RefreshDatabase;
 
@@ -44,7 +44,7 @@ class SyncDataJobTest extends TestCase
             'year_id' => $lookup['yearId'],
         ]);
 
-        new SyncDataJob($status);
+        new InputJob($status);
 
         $status->refresh();
         $this->assertSame('loading', $status->status);
@@ -66,7 +66,7 @@ class SyncDataJobTest extends TestCase
             'year_id' => $lookup['yearId'],
         ]);
 
-        $job = new SyncDataJob($status);
+        $job = new InputJob($status);
         $mockService = Mockery::mock(GoogleSheetService::class);
 
         try {
@@ -96,7 +96,7 @@ class SyncDataJobTest extends TestCase
             'year_id' => $lookup['yearId'],
         ]);
 
-        $job = new SyncDataJob($status);
+        $job = new InputJob($status);
         $mockService = Mockery::mock(GoogleSheetService::class);
 
         try {

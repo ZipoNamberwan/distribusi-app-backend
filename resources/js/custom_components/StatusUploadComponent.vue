@@ -1,11 +1,9 @@
 <script setup lang="js">
 import { ref, computed, watch } from 'vue';
 import { usePagination } from 'vue-request';
-import { index as uploadIndex } from '@/routes/upload/status';
-import { download } from '@/routes/upload/file';
+import { index as statusIndex } from '@/routes/data/status';
 import moment from 'moment';
 
-const open = ref(false);
 const lastParams = ref({});
 
 const props = defineProps({
@@ -13,12 +11,24 @@ const props = defineProps({
         type: Array,
         required: true,
         default: () => []
-    }
+    },
+    open: {
+        type: Boolean,
+        required: true,
+        default: () => false
+    },
+    type: {
+        type: String,
+        required: true,
+        default: () => false
+    },
 });
 
 const statusMap = computed(() =>
     Object.fromEntries((props.statuses ?? []).map(s => [s.value, s]))
 );
+
+const open = computed(() => (props.open));
 
 const columns = [
     {
@@ -88,7 +98,8 @@ const queryData = async (params = {}) => {
     const page = Number(current);
 
     const payload = await fetchJson(
-        uploadIndex.url({
+        statusIndex.url(
+            props.type, {
             query: {
                 start: Math.max(0, (page - 1) * size),
                 length: size,
@@ -145,39 +156,29 @@ watch(open, (isOpen) => {
 </script>
 
 <template>
-    <div>
-        <a-button type="primary" @click="open = true">
-            <!-- <template #icon>
-                <ListChecks :size="16" />
-            </template> -->
-            Status Upload
+    <div class="flex mb-3">
+        <a-button type="primary" :loading="loading" @click="handleRefresh">
+            Refresh
         </a-button>
-        <a-modal style="top: 20px" v-model:open="open" title="Status Upload" :footer="null" width="70%">
-            <div class="flex mb-3">
-                <a-button type="primary" :loading="loading" @click="handleRefresh">
-                    Refresh
-                </a-button>
-            </div>
-            <a-table :scroll="{ x: 500, y: 400 }" :columns="columns" :row-key="record => record.id"
-                :data-source="dataSource?.list ?? []" :pagination="pagination" :loading="loading"
-                @change="handleTableChange" size="small">
-                <template #bodyCell="{ column, text, record }">
-                    <template v-if="column.dataIndex === 'status'">
-                        <a-tag :color="statusMap[text]?.color ?? 'default'">
-                            {{ statusMap[text]?.title ?? text }}
-                        </a-tag>
-                    </template>
-                    <template v-if="column.key === 'periode'">
-                        <span>{{ record.month?.name }} {{ record.year?.name }}</span>
-                    </template>
-                    <template v-else-if="column.dataIndex === 'message'">
-                        <span :title="text">{{ text ? text.slice(0, 150) + (text.length > 150 ? '…' : '') : '' }}</span>
-                    </template>
-                    <template v-else-if="column.dataIndex === 'created_at'">
-                        <span :title="moment(text).format('DD MMM YYYY HH:mm:ss')">{{ moment(text).fromNow() }}</span>
-                    </template>
-                </template>
-            </a-table>
-        </a-modal>
     </div>
+    <a-table :scroll="{ x: 500, y: 400 }" :columns="columns" :row-key="record => record.id"
+        :data-source="dataSource?.list ?? []" :pagination="pagination" :loading="loading" @change="handleTableChange"
+        size="small">
+        <template #bodyCell="{ column, text, record }">
+            <template v-if="column.dataIndex === 'status'">
+                <a-tag :color="statusMap[text]?.color ?? 'default'">
+                    {{ statusMap[text]?.title ?? text }}
+                </a-tag>
+            </template>
+            <template v-if="column.key === 'periode'">
+                <span>{{ record.month?.name }} {{ record.year?.name }}</span>
+            </template>
+            <template v-else-if="column.dataIndex === 'message'">
+                <span :title="text">{{ text ? text.slice(0, 150) + (text.length > 150 ? '…' : '') : '' }}</span>
+            </template>
+            <template v-else-if="column.dataIndex === 'created_at'">
+                <span :title="moment(text).format('DD MMM YYYY HH:mm:ss')">{{ moment(text).fromNow() }}</span>
+            </template>
+        </template>
+    </a-table>
 </template>

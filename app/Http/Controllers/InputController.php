@@ -2,12 +2,13 @@
 
 namespace App\Http\Controllers;
 
-use App\Jobs\SyncDataJob;
+use App\Jobs\InputJob;
 use App\Models\Month;
 use App\Models\Regency;
 use App\Models\SyncStatus;
 use App\Models\User;
 use App\Models\Year;
+use App\Models\Category;
 use Exception;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -19,7 +20,7 @@ use Illuminate\Support\Str;
 use Inertia\Inertia;
 use Inertia\Response;
 
-class UploadController extends Controller
+class InputController extends Controller
 {
     public function showUploadForm(): Response
     {
@@ -41,6 +42,7 @@ class UploadController extends Controller
             ['title' => 'Success with Error', 'value' => 'success with error', 'color' => 'warning'],
         ];
         $regencies = Regency::all();
+        $categories = Category::all();
 
         return Inertia::render('data/Upload', [
             'months' => $months,
@@ -49,6 +51,7 @@ class UploadController extends Controller
             'regencies' => $regencies,
             'defaultMonth' => $defaultMonth,
             'defaultYear' => $defaultYear,
+            'categories' => $categories,
         ]);
     }
 
@@ -89,12 +92,13 @@ class UploadController extends Controller
                 'user_id' => $user->id,
                 'month_id' => $request->input('month'),
                 'year_id' => $request->input('year'),
+                'type' => 'input',
                 'filename' => $customFileName,
                 'status' => 'start',
             ]);
 
             try {
-                SyncDataJob::dispatch($status);
+                InputJob::dispatch($status);
 
                 return redirect()->back()->with('success', 'File telah diupload, cek status dengan menekan tombol Status Upload');
             } catch (Exception $e) {
@@ -111,41 +115,4 @@ class UploadController extends Controller
         return redirect()->back()->with('error', 'File gagal diupload, tidak ada file yang dipilih');
     }
 
-    public function getUploadStatusData(Request $request): JsonResponse
-    {
-        $records = null;
-
-        $records = SyncStatus::with(['month', 'year']);
-
-        if ($request->status) {
-            $records->whereIn('status', $request->status);
-        }
-
-        $orderColumn = 'created_at';
-        $orderDir = 'desc';
-
-        if (! empty($request->sortOrder) && ! empty($request->sortField)) {
-            $orderColumn = $request->sortField;
-            $direction = $request->sortOrder === 'ascend' ? 'asc' : 'desc';
-            $orderDir = $direction;
-        }
-
-        $recordsTotal = $records->count();
-
-        // Pagination
-        if ($request->length != -1) {
-            $records->skip($request->start)
-                ->take($request->length);
-        }
-
-        // Order
-        $records->orderBy($orderColumn, $orderDir);
-
-        $data = $records->get();
-
-        return response()->json([
-            'total' => $recordsTotal,
-            'data' => $data,
-        ]);
-    }
 }
