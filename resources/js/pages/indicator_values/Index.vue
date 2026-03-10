@@ -124,8 +124,20 @@ const visibleColumns = computed(() => [
 
 const scrollX = computed(() => {
     const regencyWidth = isSmallScreen.value ? 40 : 200;
-    const categoriesCount = (props.indicators[0]?.categories?.length ?? 2) + 1; // +1 for Total column
-    return regencyWidth + visibleIndicators.value.length * categoriesCount * colWidth.value;
+
+    const categoriesCount =
+        (props.indicators[0]?.categories?.length ?? 2) + 1;
+
+    const calculatedWidth =
+        regencyWidth +
+        visibleIndicators.value.length *
+        categoriesCount *
+        colWidth.value;
+
+    // force minimum width so Kab/Kota doesn't stretch
+    const minWidth = isSmallScreen.value ? 600 : 1000;
+
+    return Math.max(calculatedWidth, minWidth);
 });
 
 const allSelected = computed(() => visibleIndicators.value.length === props.indicators.length);
@@ -188,6 +200,7 @@ onMounted(() => {
     fetchData();
 });
 </script>
+
 <template>
 
     <Head title="Perhitungan Indikator Kab/Kota" />
@@ -256,9 +269,9 @@ onMounted(() => {
 
                 <CardContent class="p-0 sm:px-6 sm:pb-6">
                     <div class="overflow-hidden sm:rounded-lg sm:border sm:border-border">
-                        <a-table :scroll="{ x: scrollX, y: 560 }" :columns="visibleColumns"
+                        <a-table :scroll="{ x: scrollX, y: '70vh' }" :columns="visibleColumns"
                             :row-key="record => record.regency.id" :data-source="rows" :loading="loading"
-                            :pagination="false" size="small" bordered />
+                            :pagination="false" size="small" bordered tableLayout="fixed" />
                     </div>
                 </CardContent>
             </Card>

@@ -14,7 +14,7 @@ const props = defineProps({
     },
     open: {
         type: Boolean,
-        required: true,
+        required: false,
         default: () => false
     },
     type: {
@@ -161,7 +161,7 @@ watch(open, (isOpen) => {
             Refresh
         </a-button>
     </div>
-    <a-table :scroll="{ x: 500, y: 400 }" :columns="columns" :row-key="record => record.id"
+    <a-table :scroll="{ x: 500, y: '60vh' }" :columns="columns" :row-key="record => record.id"
         :data-source="dataSource?.list ?? []" :pagination="pagination" :loading="loading" @change="handleTableChange"
         size="small">
         <template #bodyCell="{ column, text, record }">

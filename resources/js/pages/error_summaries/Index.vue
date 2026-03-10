@@ -165,7 +165,7 @@ onMounted(() => {
                 <CardContent class="p-0 sm:px-6 sm:pb-6">
                     <div class="overflow-hidden sm:rounded-lg sm:border sm:border-border">
                         <a-table
-                            :scroll="{ x: scrollX, y: 560 }"
+                            :scroll="{ x: scrollX, y: '70vh' }"
                             :columns="columns"
                             :row-key="(record) => record.regency.id"
                             :data-source="rows"

@@ -50,6 +50,10 @@ const breadcrumbs = [
 
 const parentColumn = [
     {
+        title: 'Target',
+        key: 'target',
+        align: 'center',
+    }, {
         title: 'Realisasi',
         key: 'realization',
         align: 'center',
@@ -71,13 +75,15 @@ const enumerationColumns = computed(() =>
             sorter: true,
             customRender: ({ record }) => {
                 if (parent.key === 'percentage') {
-                    // const value = record.values?.[`realization_${cat.id}`] ?? 0;
-                    // const total = record.values?.[`total_${cat.id}`] ?? 0;
-                    // const percentage = total > 0 ? (value / total) * 100 : 0;
-                    // return h('span', `${percentage.toFixed(2)}%`);
-                    return h('span', 0);
+                    const realization = record.realization?.[cat.id] ?? 0;
+                    const target = record.target?.[cat.id] ?? 0;
+                    const percentage = target > 0 ? (realization / target) * 100 : null;
+                    return h(
+                        'span',
+                        percentage === null ? '-' : `${percentage.toFixed(2)}%`
+                    );
                 }
-                return h('span', record.values?.[cat.id] ?? 0);
+                return h('span', record.realization?.[cat.id] ?? 0);
             },
         }))
     }))
@@ -138,7 +144,7 @@ onMounted(() => {
 
                 <CardContent class="p-0 sm:px-6 sm:pb-6">
                     <div class="overflow-hidden sm:rounded-lg sm:border sm:border-border">
-                        <a-table :scroll="{ x: 1200, y: 560 }" :columns="columns"
+                        <a-table :scroll="{ x: 1200, y: '70vh' }" :columns="columns"
                             :row-key="(record) => record.regency.id" :data-source="rows" :loading="loading"
                             :pagination="false" size="small" bordered />
                     </div>

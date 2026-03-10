@@ -1,5 +1,5 @@
 <script setup>
-import { h, ref, computed } from 'vue';
+import { h, ref, watch, computed } from 'vue';
 import { usePagination } from 'vue-request';
 import { index as sampleTargetDataIndex } from '@/routes/sample/data';
 
@@ -8,9 +8,13 @@ const props = defineProps({
     months: { type: Array, required: true, default: () => [] },
     years: { type: Array, required: true, default: () => [] },
     regencies: { type: Array, required: true, default: () => [] },
+    open: {
+        type: Boolean, required: true, default: () => false
+    },
 });
 
 const lastParams = ref({});
+const open = computed(() => (props.open));
 
 const baseColumns = [
     {
@@ -25,7 +29,7 @@ const baseColumns = [
     {
         title: 'Default',
         dataIndex: 'is_default',
-        width: '7%',
+        width: '10%',
         align: 'center',
         customRender: ({ record }) => {
             if (record.is_default === 1) {
@@ -144,9 +148,17 @@ const handleTableChange = (pag, filters, sorter) => {
         ...filterQuery,
     });
 };
+
+
+watch(open, (isOpen) => {
+    console.log('Open changed:', isOpen);
+    if (isOpen) {
+        run();
+    }
+});
 </script>
 <template>
-    <a-table :scroll="{ y: 600 }" :columns="columns" :row-key="record => record.id"
+    <a-table :scroll="{ y: 400 }" :columns="columns" :row-key="record => record.id"
         :data-source="dataSource?.list ?? []" :pagination="false" :loading="loading" @change="handleTableChange"
         size="small">
     </a-table>
