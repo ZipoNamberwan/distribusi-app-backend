@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Link } from '@inertiajs/vue3';
-import { AlertTriangle, BookOpen, Database, FolderGit2, LayoutGrid, Upload, ChartBar  } from 'lucide-vue-next';
+import { AlertTriangle, BookOpen, Database, FolderGit2, LayoutGrid, Upload, ChartBar, Rainbow } from 'lucide-vue-next';
 import AppLogo from '@/components/AppLogo.vue';
 import NavFooter from '@/components/NavFooter.vue';
 import NavMain from '@/components/NavMain.vue';
@@ -20,6 +20,7 @@ import { index as dataUpload } from '@/routes/upload';
 import { index as indicatorValues } from '@/routes/indicator/table';
 import { index as errorSummaries } from '@/routes/error_summaries/page';
 import { index as enumerationPage } from '@/routes/enumeration/page';
+import { index as predictionPage } from '@/routes/prediction/page';
 import type { NavItem } from '@/types';
 
 const mainNavItems: NavItem[] = [
@@ -42,6 +43,11 @@ const mainNavItems: NavItem[] = [
         title: 'Indikator',
         href: indicatorValues(),
         icon: LayoutGrid,
+    },
+    {
+        title: 'Prediksi TPK',
+        href: predictionPage(),
+        icon: Rainbow,
     },
     {
         title: 'Rekap Error',

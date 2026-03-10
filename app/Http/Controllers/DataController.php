@@ -4,81 +4,93 @@ namespace App\Http\Controllers;
 
 use App\Models\Category;
 use App\Models\Indicator;
+use App\Models\IndicatorValue;
 use App\Models\Year;
 use Illuminate\Http\Request;
 use App\Models\Input;
 use App\Models\Month;
+use App\Models\Regency;
 use App\Models\SyncStatus;
-use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Symfony\Component\HttpFoundation\JsonResponse;
 
 class DataController extends Controller
 {
+    public function showRawDataPage()
+    {
+        $regencies = Regency::all();
+        $months = Month::all();
+        $years = Year::all();
+        return Inertia::render('data/Index', [
+            'regencies' => $regencies,
+            'months' => $months,
+            'years' => $years,
+        ]);
+    }
     public function getInputData(Request $request)
     {
         $records = null;
 
         $records = Input::with(['month', 'year', 'user', 'regency', 'syncStatus']);
 
-        if ($request->month) {
-            $records->where('bulan', $request->month);
+        if ($request->input('month')) {
+            $records->where('bulan', $request->input('month'));
         }
-        if ($request->year) {
-            $records->where('tahun', $request->year);
-        }
-
-        if ($request->status) {
-            $records->whereIn('status', $request->status);
+        if ($request->input('year')) {
+            $records->where('tahun', $request->input('year'));
         }
 
-        if ($request->regency) {
-            $records->whereIn('kode_kab', $request->regency);
+        if ($request->input('status')) {
+            $records->whereIn('status', $request->input('status'));
         }
 
-        if ($request->nama_komersial) {
-            $search = is_array($request->nama_komersial) ? $request->nama_komersial[0] : $request->nama_komersial;
+        if ($request->input('regency')) {
+            $records->whereIn('kode_kab', $request->input('regency'));
+        }
+
+        if ($request->input('nama_komersial')) {
+            $search = is_array($request->input('nama_komersial')) ? $request->input('nama_komersial')[0] : $request->input('nama_komersial');
             $records->where('nama_komersial', 'like', '%' . $search . '%');
         }
 
-        if ($request->alamat) {
-            $search = is_array($request->alamat) ? $request->alamat[0] : $request->alamat;
+        if ($request->input('alamat')) {
+            $search = is_array($request->input('alamat')) ? $request->input('alamat')[0] : $request->input('alamat');
             $records->where('alamat', 'like', '%' . $search . '%');
         }
 
-        if ($request->kode_kec) {
-            $search = is_array($request->kode_kec) ? $request->kode_kec[0] : $request->kode_kec;
+        if ($request->input('kode_kec')) {
+            $search = is_array($request->input('kode_kec')) ? $request->input('kode_kec')[0] : $request->input('kode_kec');
             $records->where('kode_kec', 'like', '%' . $search . '%');
         }
 
-        if ($request->kode_desa) {
-            $search = is_array($request->kode_desa) ? $request->kode_desa[0] : $request->kode_desa;
+        if ($request->input('kode_desa')) {
+            $search = is_array($request->input('kode_desa')) ? $request->input('kode_desa')[0] : $request->input('kode_desa');
             $records->where('kode_desa', 'like', '%' . $search . '%');
         }
 
-        if ($request->status) {
-            $search = is_array($request->status) ? $request->status[0] : $request->status;
+        if ($request->input('status')) {
+            $search = is_array($request->input('status')) ? $request->input('status')[0] : $request->input('status');
             $records->where('status', 'like', '%' . $search . '%');
         }
 
         $orderColumn = 'created_at';
         $orderDir = 'desc';
 
-        if (!empty($request->sortOrder) && ! empty($request->sortField)) {
-            $orderColumn = $request->sortField;
-            if ($request->sortField == 'regency') {
+        if (!empty($request->input('sortOrder')) && ! empty($request->input('sortField'))) {
+            $orderColumn = $request->input('sortField');
+            if ($request->input('sortField') == 'regency') {
                 $orderColumn = 'kode_kab';
             }
-            $direction = $request->sortOrder === 'ascend' ? 'asc' : 'desc';
+            $direction = $request->input('sortOrder') === 'ascend' ? 'asc' : 'desc';
             $orderDir = $direction;
         }
 
         $recordsTotal = $records->count();
 
         // Pagination
-        if ($request->length != -1) {
-            $records->skip($request->start)
-                ->take($request->length);
+        if ($request->input('length') != -1) {
+            $records->skip($request->input('start'))
+                ->take($request->input('length'));
         }
 
         // Order
@@ -92,7 +104,7 @@ class DataController extends Controller
         ]);
     }
 
-    public function showIndicatorValues()
+    public function showIndicatorValuesPage()
     {
         $months = Month::all();
         $years = Year::all();
@@ -102,68 +114,52 @@ class DataController extends Controller
             ['categories' => $categories->toArray()]
         ));
 
-        $latestPeriod = DB::table('indicator_values as iv')
-            ->join('years as y', 'y.id', '=', 'iv.year_id')
-            ->join('months as m', 'm.id', '=', 'iv.month_id')
-            ->orderByDesc('y.name')
-            ->orderByDesc('m.id')
-            ->select('iv.month_id', 'iv.year_id')
+        $latestValue = IndicatorValue::with(['year', 'month'])
+            ->orderByDesc('year_id')
+            ->orderByDesc('month_id')
             ->first();
 
         return Inertia::render('indicator_values/Index', [
             'months'       => $months,
             'years'        => $years,
             'indicators'   => $indicators->values(),
-            'defaultMonth' => $latestPeriod?->month_id,
-            'defaultYear'  => $latestPeriod?->year_id,
+            'defaultMonth' => $latestValue?->month_id,
+            'defaultYear'  => $latestValue?->year_id,
         ]);
     }
 
     public function getIndicatorValuesData(Request $request): JsonResponse
     {
-        $query = DB::table('indicator_values as iv')
-            ->join('regencies as r', 'r.id', '=', 'iv.regency_id')
-            ->select(
-                'r.id as regency_id',
-                'r.name as regency_name',
-                'r.long_code as regency_long_code',
-                'iv.indicator_id',
-                'iv.category_id',
-                'iv.numerator',
-                'iv.denominator',
-            );
+        $query = IndicatorValue::query()
+            ->with(['regency', 'indicator', 'category']);
 
-        if ($request->month) {
-            $query->where('iv.month_id', $request->month);
+        if ($request->input('month') !== null) {
+            $query->where('month_id', $request->input('month'));
         }
 
-        if ($request->year) {
-            $query->where('iv.year_id', $request->year);
+        if ($request->input('year') !== null) {
+            $query->where('year_id', $request->input('year'));
         }
 
-        $orderDir = (! empty($request->sortOrder) && $request->sortOrder === 'descend') ? 'desc' : 'asc';
+        $orderDir = (! empty($request->input('sortOrder')) && $request->input('sortOrder') === 'descend') ? 'desc' : 'asc';
 
-        $query->orderBy('r.long_code', $orderDir);
+        $rows = $query->get()->sortBy(fn($row) => $row->regency->long_code, $orderDir === 'desc');
 
-        $rows = $query->get();
+        $total = $rows->unique(fn($row) => $row->regency->id)->count();
 
-        $total = $rows->unique('regency_id')->count();
-
-        $data = $rows->groupBy('regency_id')->map(function ($regencyRows) {
+        $data = $rows->groupBy(fn($row) => $row->regency->id)->map(function ($regencyRows) {
             $first = $regencyRows->first();
-
             $values = $regencyRows->mapWithKeys(fn($row) => [
                 "{$row->indicator_id}_{$row->category_id}" => [
                     'num' => $row->numerator,
                     'den' => $row->denominator,
                 ],
             ]);
-
             return [
                 'regency' => [
-                    'id'        => $first->regency_id,
-                    'name'      => $first->regency_name,
-                    'long_code' => $first->regency_long_code,
+                    'id'        => $first->regency->id,
+                    'name'      => $first->regency->name,
+                    'long_code' => $first->regency->long_code,
                 ],
                 'values' => $values,
             ];
@@ -171,31 +167,32 @@ class DataController extends Controller
 
         return response()->json(['data' => $data, 'total' => $total]);
     }
+
     public function getUploadStatusData($type, Request $request): JsonResponse
     {
         $records = null;
 
         $records = SyncStatus::with(['month', 'year'])->where('type', $type ?? 'input');
 
-        if ($request->status) {
-            $records->whereIn('status', $request->status);
+        if ($request->input('status')) {
+            $records->whereIn('status', $request->input('status'));
         }
 
         $orderColumn = 'created_at';
         $orderDir = 'desc';
 
-        if (! empty($request->sortOrder) && ! empty($request->sortField)) {
-            $orderColumn = $request->sortField;
-            $direction = $request->sortOrder === 'ascend' ? 'asc' : 'desc';
+        if (! empty($request->input('sortOrder')) && ! empty($request->input('sortField'))) {
+            $orderColumn = $request->input('sortField');
+            $direction = $request->input('sortOrder') === 'ascend' ? 'asc' : 'desc';
             $orderDir = $direction;
         }
 
         $recordsTotal = $records->count();
 
         // Pagination
-        if ($request->length != -1) {
-            $records->skip($request->start)
-                ->take($request->length);
+        if ($request->input('length') != -1) {
+            $records->skip($request->input('start'))
+                ->take($request->input('length'));
         }
 
         // Order

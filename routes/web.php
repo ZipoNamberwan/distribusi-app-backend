@@ -5,6 +5,7 @@ use App\Http\Controllers\EnumerationController;
 use App\Http\Controllers\ErrorSummaryController;
 use App\Http\Controllers\FinalNumberController;
 use App\Http\Controllers\InputController;
+use App\Http\Controllers\PredictionController;
 use App\Http\Controllers\TargetSampleController;
 use Illuminate\Support\Facades\Route;
 use Laravel\Fortify\Features;
@@ -16,7 +17,7 @@ Route::inertia('/', 'Welcome', [
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::inertia('dashboard', 'Dashboard')->name('dashboard');
 
-    Route::get('data', [DataController::class, 'index'])->name('data.index');
+    Route::get('data', [DataController::class, 'showRawDataPage'])->name('data.index');
     Route::get('data/input', [DataController::class, 'getInputData'])->name('data.raw.index');
     Route::get('status/data/{type}', [DataController::class, 'getUploadStatusData'])->name('data.status.index');
 
@@ -25,7 +26,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('input/upload', [InputController::class, 'storeUpload'])->name('upload.store.index');
     Route::post('input/download', [InputController::class, 'downloadFile'])->name('upload.file.download');
 
-    Route::get('indicator', [DataController::class, 'showIndicatorValues'])->name('indicator.table.index');
+    Route::get('indicator', [DataController::class, 'showIndicatorValuesPage'])->name('indicator.table.index');
     Route::get('indicator/data', [DataController::class, 'getIndicatorValuesData'])->name('indicator.data.index');
 
     Route::get('error-summaries', [ErrorSummaryController::class, 'showErrorSummaryPage'])->name('error_summaries.page.index');
@@ -41,6 +42,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('final/template', [FinalNumberController::class, 'downloadTemplate'])->name('final.template.index');
     Route::get('final/data', [FinalNumberController::class, 'getFinalNumberData'])->name('final.data.index');
     Route::post('final/upload', [FinalNumberController::class, 'storeUpload'])->name('final.upload.store');
+
+    Route::get('prediction', [PredictionController::class, 'showPredictionPage'])->name('prediction.page.index');
+    Route::get('prediction/data', [PredictionController::class, 'getPredictionData'])->name('prediction.data.index');
 });
 
 require __DIR__ . '/settings.php';
