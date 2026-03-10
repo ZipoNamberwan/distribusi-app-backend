@@ -35,7 +35,7 @@ const columns = [
         title: 'Status',
         dataIndex: 'status',
         sorter: true,
-        width: '10%',
+        width: '15%',
         filters: (props.statuses ?? []).map(s => ({ text: s.title, value: s.value })),
     },
     {

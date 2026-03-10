@@ -1,7 +1,7 @@
 <script setup>
 import { h, ref, watch, computed } from 'vue';
 import { usePagination } from 'vue-request';
-import { index as sampleTargetDataIndex } from '@/routes/sample/data';
+import { index as finalNumberDataIndex } from '@/routes/final/data';
 
 const props = defineProps({
     categories: { type: Array, required: true, default: () => [] },
@@ -26,23 +26,6 @@ const baseColumns = [
             return h('span', `[${record.regency?.['long_code']}] ${record.regency?.['name']}`);
         },
         filters: (props.regencies ?? []).map(s => ({ text: `${s.long_code} ${s.name}`, value: s.id })),
-    },
-    {
-        title: 'Default',
-        dataIndex: 'is_default',
-        width: '10%',
-        align: 'center',
-        customRender: ({ record }) => {
-            if (record.is_default === 1) {
-                return h('span', `Ya`);
-            } else if (record.is_default === 0) { return h('span', `Bukan`); }
-
-            return h('span', `-`);
-        },
-        filters: [
-            { text: 'Ya', value: 1 },
-            { text: 'Bukan', value: 0 },
-        ],
     },
     {
         title: 'Bulan',
@@ -118,7 +101,7 @@ const queryData = async (params = {}) => {
     const page = Number(current);
 
     const payload = await fetchJson(
-        sampleTargetDataIndex.url({
+        finalNumberDataIndex.url({
             query: {
                 start: Math.max(0, (page - 1) * size),
                 length: size,

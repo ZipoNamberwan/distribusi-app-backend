@@ -6,7 +6,7 @@ import { index as dataIndex } from '@/routes/data';
 import { index as uploadIndex } from '@/routes/upload';
 import UploadInput from './UploadInput.vue';
 import UploadTargetSample from './UploadTargetSample.vue';
-
+import UploadFinalNumber from './UploadFinalNumber.vue';
 const props = defineProps({
     months: {
         type: Array,
@@ -77,7 +77,11 @@ const breadcrumbs = [
                         :regencies="props.regencies" :categories="props.categories" :defaultMonth="props.defaultMonth"
                         :defaultYear="props.defaultYear" />
                 </a-tab-pane>
-                <a-tab-pane key="3" tab="Upload Angka Final">Content of Tab Pane 3</a-tab-pane>
+                <a-tab-pane key="3" tab="Upload Angka Final">
+                    <UploadFinalNumber :months="props.months" :years="props.years" :regencies="props.regencies"
+                        :categories="props.categories" :defaultMonth="props.defaultMonth"
+                        :defaultYear="props.defaultYear" :statuses="props.statuses" />
+                </a-tab-pane>
             </a-tabs>
         </div>
     </AppLayout>

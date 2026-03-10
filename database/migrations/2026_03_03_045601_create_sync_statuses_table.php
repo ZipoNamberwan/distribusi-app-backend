@@ -16,7 +16,7 @@ return new class extends Migration
             $table->foreignUuid('user_id')->constrained('users');
             $table->string('filename');
             $table->enum('status', ['start', 'loading', 'success', 'failed', 'success with error']);
-            $table->enum('type', ['input', 'sample', 'final-data']);
+            $table->enum('type', ['input', 'sample', 'final']);
             $table->text('system_message')->nullable();
             $table->text('user_message')->nullable();
             $table->foreignId('month_id')->nullable()->constrained('months');

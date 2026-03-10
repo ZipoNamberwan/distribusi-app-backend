@@ -171,8 +171,6 @@ class DataController extends Controller
 
         return response()->json(['data' => $data, 'total' => $total]);
     }
-
-
     public function getUploadStatusData($type, Request $request): JsonResponse
     {
         $records = null;

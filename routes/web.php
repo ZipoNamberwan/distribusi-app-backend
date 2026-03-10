@@ -3,6 +3,7 @@
 use App\Http\Controllers\DataController;
 use App\Http\Controllers\EnumerationController;
 use App\Http\Controllers\ErrorSummaryController;
+use App\Http\Controllers\FinalNumberController;
 use App\Http\Controllers\InputController;
 use App\Http\Controllers\TargetSampleController;
 use Illuminate\Support\Facades\Route;
@@ -36,6 +37,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('sample/template', [TargetSampleController::class, 'downloadTemplate'])->name('sample.template.index');
     Route::get('sample/data', [TargetSampleController::class, 'getTargetSampleData'])->name('sample.data.index');
     Route::post('sample/upload', [TargetSampleController::class, 'storeUpload'])->name('sample.upload.store');
+
+    Route::get('final/template', [FinalNumberController::class, 'downloadTemplate'])->name('final.template.index');
+    Route::get('final/data', [FinalNumberController::class, 'getFinalNumberData'])->name('final.data.index');
+    Route::post('final/upload', [FinalNumberController::class, 'storeUpload'])->name('final.upload.store');
 });
 
 require __DIR__ . '/settings.php';

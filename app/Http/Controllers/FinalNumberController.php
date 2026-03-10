@@ -2,29 +2,27 @@
 
 namespace App\Http\Controllers;
 
-use App\Jobs\SampleTargetJob;
+use App\Jobs\FinalNumberJob;
 use App\Models\Category;
-use App\Models\SampleTarget;
+use App\Models\FinalNumber;
 use App\Models\SyncStatus;
 use App\Models\User;
 use Exception;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Symfony\Component\HttpFoundation\JsonResponse;
-
-class TargetSampleController extends Controller
+class FinalNumberController extends Controller
 {
     public function downloadTemplate()
     {
-        return Storage::download('template/template_sample.xlsx');
+        return Storage::download('template/template_final.xlsx');
     }
 
     public function storeUpload(Request $request)
     {
         $validateArray = [
-            'type' => 'required|in:default,monthly',
             'file' => 'required|file|mimes:xlsx|max:10240',
             'month' => 'required_if:type,monthly|exists:months,id',
             'year' => 'required|exists:years,id',
@@ -44,15 +42,15 @@ class TargetSampleController extends Controller
             $status = SyncStatus::create([
                 'id' => $uuid,
                 'user_id' => $user->id,
-                'month_id' => $request->type === 'monthly' ? $request->input('month') : null,
+                'month_id' => $request->input('month'),
                 'year_id' => $request->input('year'),
-                'type' => 'sample',
+                'type' => 'final',
                 'filename' => $customFileName,
                 'status' => 'start',
             ]);
 
             try {
-                SampleTargetJob::dispatch($status);
+                FinalNumberJob::dispatch($status);
 
                 return redirect()->back()->with('success', 'File telah diupload, cek status dengan menekan tombol Status Upload');
             } catch (Exception $e) {
@@ -69,24 +67,15 @@ class TargetSampleController extends Controller
         return redirect()->back()->with('error', 'File gagal diupload, tidak ada file yang dipilih');
     }
 
-    public function getTargetSampleData(Request $request): JsonResponse
+    public function getFinalNumberData(Request $request): JsonResponse
     {
         // Get all sample targets with relationships
         $categories = Category::all();
-        $query = SampleTarget::with(['regency', 'month', 'year', 'category'])
-            ->join('regencies', 'sample_targets.regency_id', '=', 'regencies.id')
+        $query = FinalNumber::with(['regency', 'month', 'year', 'category'])
+            ->join('regencies', 'final_numbers.regency_id', '=', 'regencies.id')
             ->orderBy('regencies.long_code', 'asc')
-            ->select('sample_targets.*');
-        if ($request->has('is_default')) {
-            $isDefault = $request->input('is_default');
-            if (is_array($isDefault)) {
-                $query->whereIn('is_default', $isDefault);
-            } else {
-                $query->where('is_default', $isDefault);
-            }
-        } else {
-            $query->where('is_default', true);
-        }
+            ->select('final_numbers.*');
+        
         if ($request->has('regency')) {
             $regencies = $request->input('regency');
             if (is_array($regencies)) {
@@ -111,10 +100,10 @@ class TargetSampleController extends Controller
                 $query->where('month_id', $months);
             }
         }
-        $sampleTargets = $query->get();
+        $finalNumbers = $query->get();
 
         // Group by regency, month, year
-        $grouped = $sampleTargets->groupBy(function ($item) {
+        $grouped = $finalNumbers->groupBy(function ($item) {
             return $item->regency_id . '-' . $item->month_id . '-' . $item->year_id;
         });
 
@@ -125,7 +114,6 @@ class TargetSampleController extends Controller
                 'regency' => $first->regency,
                 'month' => $first->month,
                 'year' => $first->year,
-                'is_default' => $first->is_default,
             ];
             foreach ($categories as $category) {
                 $target = $group->firstWhere('category_id', $category->id);
