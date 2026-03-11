@@ -7,6 +7,8 @@ use App\Models\Error;
 use App\Models\Indicator;
 use App\Models\Month;
 use App\Models\Regency;
+use App\Models\Role;
+use App\Models\User;
 use App\Models\Year;
 use Illuminate\Database\Seeder;
 
@@ -94,5 +96,16 @@ class MasterSeeder extends Seeder
 
         Error::create(['code' => 'Hotel', 'name' => 'Error Hotel']);
         Error::create(['code' => 'Indikator', 'name' => 'Error Indikator']);
+
+        $adminprov = Role::create(['name' => 'adminprov']);
+        $adminkab = Role::create(['name' => 'adminkab']);
+
+        $user = User::create([
+            'name' => 'Test User',
+            'email' => 'test@example.com',
+            'password' => bcrypt('123456'),
+        ]);
+
+        $user->assignRole($adminprov);
     }
 }

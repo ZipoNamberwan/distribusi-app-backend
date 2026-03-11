@@ -37,19 +37,11 @@ const breadcrumbs = [
 
     <AppLayout :breadcrumbs="breadcrumbs">
         <div class="flex flex-col gap-4 sm:p-4">
-            <Card>
-                <CardHeader>
-                    <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between sm:gap-4">
-                        <div class="space-y-1">
-                            <CardTitle>Raw Data</CardTitle>
-                        </div>
-                    </div>
-                </CardHeader>
-
-                <CardContent class="p-0 sm:px-6 sm:pb-6">
-                    <RawDataComponent :regencies="props.regencies" :months="props.months" :years="props.years" />
-                </CardContent>
-            </Card>
+            <a-card title="Raw Data">
+                <RawDataComponent :regencies="props.regencies" :months="props.months" :years="props.years" />
+            </a-card>
         </div>
+
+
     </AppLayout>
 </template>
