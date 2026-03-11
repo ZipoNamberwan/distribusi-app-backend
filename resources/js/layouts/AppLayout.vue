@@ -12,7 +12,7 @@ withDefaults(defineProps<Props>(), {
     breadcrumbs: () => [],
 });
 
-const isDark = ref(false)
+const isDark = ref(true)
 
 const currentTheme = computed(() => ({
     algorithm: isDark.value

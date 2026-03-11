@@ -96,8 +96,8 @@
     --card-foreground: hsl(0 0% 3.9%);
     --popover: hsl(0 0% 100%);
     --popover-foreground: hsl(0 0% 3.9%);
-    --primary: hsl(0 0% 9%);
-    --primary-foreground: hsl(0 0% 98%);
+    --primary: oklch(62.3% 0.214 259.815); /* Tailwind blue-500 */
+    --primary-foreground: hsl(0 0% 98%); /* white */
     --secondary: hsl(0 0% 92.1%);
     --secondary-foreground: hsl(0 0% 9%);
     --muted: hsl(0 0% 96.1%);
@@ -115,15 +115,15 @@
     --chart-4: hsl(43 74% 66%);
     --chart-5: hsl(27 87% 67%);
     --radius: 0.5rem;
-    --sidebar-background: hsl(0 0% 98%);
-    --sidebar-foreground: hsl(240 5.3% 26.1%);
-    --sidebar-primary: hsl(0 0% 10%);
-    --sidebar-primary-foreground: hsl(0 0% 98%);
-    --sidebar-accent: hsl(0 0% 94%);
-    --sidebar-accent-foreground: hsl(0 0% 30%);
-    --sidebar-border: hsl(0 0% 91%);
-    --sidebar-ring: hsl(217.2 91.2% 59.8%);
-    --sidebar: hsl(0 0% 98%);
+    --sidebar-background: hsl(210 100% 98%); /* very light blue */
+    --sidebar-foreground: hsl(210 40% 25%); /* dark blue for text */
+    --sidebar-primary: hsl(210 100% 50%); /* primary blue */
+    --sidebar-primary-foreground: hsl(0 0% 98%); /* white */
+    --sidebar-accent: hsl(210 100% 95%); /* lighter blue accent */
+    --sidebar-accent-foreground: hsl(210 40% 35%); /* medium blue for accent text */
+    --sidebar-border: hsl(210 60% 85%); /* blue border */
+    --sidebar-ring: hsl(210 100% 60%); /* blue ring */
+    --sidebar: hsl(210 100% 98%); /* very light blue */
 }
 
 .dark {
@@ -151,15 +151,15 @@
     --chart-3: hsl(30 80% 55%);
     --chart-4: hsl(280 65% 60%);
     --chart-5: hsl(340 75% 55%);
-    --sidebar-background: hsl(0 0% 7%);
-    --sidebar-foreground: hsl(0 0% 95.9%);
-    --sidebar-primary: hsl(360, 100%, 100%);
-    --sidebar-primary-foreground: hsl(0 0% 100%);
-    --sidebar-accent: hsl(0 0% 15.9%);
-    --sidebar-accent-foreground: hsl(240 4.8% 95.9%);
-    --sidebar-border: hsl(0 0% 15.9%);
-    --sidebar-ring: hsl(217.2 91.2% 59.8%);
-    --sidebar: hsl(240 5.9% 10%);
+    --sidebar-background: hsl(210 40% 12%); /* dark blue background */
+    --sidebar-foreground: hsl(210 60% 90%); /* light blue text */
+    --sidebar-primary: hsl(210 100% 60%); /* blue primary */
+    --sidebar-primary-foreground: hsl(0 0% 100%); /* white */
+    --sidebar-accent: hsl(210 60% 20%); /* blue accent */
+    --sidebar-accent-foreground: hsl(210 60% 90%); /* light blue accent text */
+    --sidebar-border: hsl(210 40% 25%); /* blue border */
+    --sidebar-ring: hsl(210 100% 70%); /* blue ring */
+    --sidebar: hsl(210 40% 12%); /* dark blue background */
 }
 
 @layer base {
