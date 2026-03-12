@@ -1,12 +1,15 @@
 <?php
 
+use App\Http\Controllers\ConfirmationController;
 use App\Http\Controllers\DataController;
 use App\Http\Controllers\EnumerationController;
 use App\Http\Controllers\ErrorSummaryController;
 use App\Http\Controllers\FinalNumberController;
 use App\Http\Controllers\InputController;
+use App\Http\Controllers\PhenomenaController;
 use App\Http\Controllers\PredictionController;
 use App\Http\Controllers\TargetSampleController;
+use App\Http\Controllers\UserController;
 use Illuminate\Support\Facades\Route;
 use Laravel\Fortify\Features;
 
@@ -45,6 +48,13 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     Route::get('prediction', [PredictionController::class, 'showPredictionPage'])->name('prediction.page.index');
     Route::get('prediction/data', [PredictionController::class, 'getPredictionData'])->name('prediction.data.index');
+
+    Route::get('user', [UserController::class, 'showUserPage'])->name('user.page.index');
+    Route::post('user', [UserController::class, 'store'])->name('user.page.store');
+    Route::get('user/data', [UserController::class, 'getUserData'])->name('user.data.index');
+    
+    Route::get('confirmation', [ConfirmationController::class, 'showConfirmationPage'])->name('confirmation.page.index');
+    Route::get('phenomena', [PhenomenaController::class, 'showPhenomenaPage'])->name('phenomena.page.index');
 });
 
 require __DIR__ . '/settings.php';

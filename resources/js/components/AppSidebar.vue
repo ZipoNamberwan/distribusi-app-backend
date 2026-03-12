@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Link } from '@inertiajs/vue3';
-import { AlertTriangle, BookOpen, Database, FolderGit2, LayoutGrid, Upload, ChartBar, Rainbow } from 'lucide-vue-next';
+import { AlertTriangle, BookOpen, Database, FolderGit2, LayoutGrid, Upload, ChartBar, Rainbow, User, Bolt, Columns4 } from 'lucide-vue-next';
 import AppLogo from '@/components/AppLogo.vue';
 import NavFooter from '@/components/NavFooter.vue';
 import NavMain from '@/components/NavMain.vue';
@@ -21,9 +21,20 @@ import { index as indicatorValues } from '@/routes/indicator/table';
 import { index as errorSummaries } from '@/routes/error_summaries/page';
 import { index as enumerationPage } from '@/routes/enumeration/page';
 import { index as predictionPage } from '@/routes/prediction/page';
+import { index as userPage } from '@/routes/user/page';
+import { index as confirmationPage } from '@/routes/confirmation/page';
+import { index as phenomenaPage } from '@/routes/phenomena/page';
+
 import type { NavItem } from '@/types';
 
-const mainNavItems: NavItem[] = [
+type NavGroup = {
+    label: string
+    items: NavItem[]
+}
+
+type SidebarEntry = NavItem | NavGroup
+
+const sidebarItems: SidebarEntry[] = [
     {
         title: 'Dashboard',
         href: dashboard(),
@@ -33,11 +44,6 @@ const mainNavItems: NavItem[] = [
         title: 'Data',
         href: dataIndex(),
         icon: Database,
-    },
-    {
-        title: 'Upload Data',
-        href: dataUpload(),
-        icon: Upload,
     },
     {
         title: 'Indikator',
@@ -59,7 +65,37 @@ const mainNavItems: NavItem[] = [
         href: enumerationPage(),
         icon: ChartBar,
     },
-];
+    {
+        label: 'Konfirmasi',
+        items: [
+            {
+                title: 'Konfirmasi Error',
+                href: confirmationPage(),
+                icon: Bolt,
+            },
+            {
+                title: 'Fenomena',
+                href: phenomenaPage(),
+                icon: Columns4,
+            },
+        ],
+    },
+    {
+        label: 'Admin',
+        items: [
+            {
+                title: 'Upload Data',
+                href: dataUpload(),
+                icon: Upload,
+            },
+            {
+                title: 'Manajemen User',
+                href: userPage(),
+                icon: User,
+            },
+        ],
+    },
+]
 
 const footerNavItems: NavItem[] = [
     {
@@ -90,11 +126,11 @@ const footerNavItems: NavItem[] = [
         </SidebarHeader>
 
         <SidebarContent>
-            <NavMain :items="mainNavItems" />
+            <NavMain :sidebarItems="sidebarItems" />
         </SidebarContent>
 
         <SidebarFooter>
-            <NavFooter :items="footerNavItems" />
+            <!-- <NavFooter :items="footerNavItems" /> -->
             <NavUser />
         </SidebarFooter>
     </Sidebar>

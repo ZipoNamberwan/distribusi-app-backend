@@ -25,6 +25,7 @@ class User extends Authenticatable
         'name',
         'email',
         'password',
+        'regency_id',
     ];
 
     /**
@@ -51,5 +52,10 @@ class User extends Authenticatable
             'password' => 'hashed',
             'two_factor_confirmed_at' => 'datetime',
         ];
+    }
+
+    public function regency()
+    {
+        return $this->belongsTo(Regency::class, 'regency_id');
     }
 }
