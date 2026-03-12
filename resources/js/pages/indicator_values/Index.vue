@@ -5,6 +5,7 @@ import { ref, computed, onMounted, onUnmounted, h } from 'vue';
 import { Head } from '@inertiajs/vue3';
 import { index as dataIndex } from '@/routes/indicator/data';
 import { index as tableIndex } from '@/routes/indicator/table';
+import IndicatorValuesMobile from '@/custom_components/mobile/IndicatorValuesMobile.vue';
 
 const breadcrumbs = [
     {
@@ -29,6 +30,11 @@ const onResize = () => {
     isSmallScreen.value = window.innerWidth < 640;
 };
 
+onMounted(() => {
+    window.addEventListener('resize', onResize);
+    fetchData();
+});
+
 onUnmounted(() => window.removeEventListener('resize', onResize));
 
 const colWidth = computed(() => (isSmallScreen.value ? 40 : 90));
@@ -41,6 +47,66 @@ const INDICATOR_COLORS = {
     TPTT: '#fff0f6',
 };
 
+// =====================================================
+// MOBILE CARD CONFIGURATION
+// =====================================================
+const mobileCardConfig = computed(() => ({
+    // Define how to extract header information from each record
+    header: (record) => ({
+        title: record.regency?.name || '',
+        subtitle: record.regency?.long_code || '',
+    }),
+
+    // Define sections to display - each section represents an indicator
+    sections: props.indicators
+        .filter((ind) => visibleIndicators.value.includes(ind.id))
+        .map((ind) => ({
+            title: ind.name,
+            color: INDICATOR_COLORS[ind.name] || '#f5f5f5',
+            // Function to dynamically generate items for this section
+            items: (record) => {
+                const items = [];
+
+                // Add category items
+                ind.categories.forEach((cat) => {
+                    const key = `${ind.id}_${cat.id}`;
+                    const val = record.values?.[key];
+                    const displayValue = val && val.den
+                        ? ((val.num / val.den) * ind.scale_factor).toFixed(2)
+                        : '-';
+
+                    items.push({
+                        label: cat.short_name || cat.name,
+                        value: displayValue,
+                    });
+                });
+
+                // Add total item
+                let totalNum = 0, totalDen = 0;
+                ind.categories.forEach((cat) => {
+                    const v = record.values?.[`${ind.id}_${cat.id}`];
+                    if (v?.den > 0) {
+                        totalNum += v.num;
+                        totalDen += v.den;
+                    }
+                });
+                const totalValue = totalDen
+                    ? ((totalNum / totalDen) * ind.scale_factor).toFixed(2)
+                    : '-';
+
+                items.push({
+                    label: 'Total',
+                    value: totalValue,
+                });
+
+                return items;
+            },
+        })),
+}));
+
+// =====================================================
+// TABLE CONFIGURATION (DESKTOP)
+// =====================================================
 const allIndicatorColumns = computed(() =>
     props.indicators.map((ind) => {
         const bg = INDICATOR_COLORS[ind.name] ?? '#f5f5f5';
@@ -194,11 +260,6 @@ const fetchData = async () => {
         loading.value = false;
     }
 };
-
-onMounted(() => {
-    window.addEventListener('resize', onResize);
-    fetchData();
-});
 </script>
 
 <template>
@@ -206,21 +267,22 @@ onMounted(() => {
     <Head title="Perhitungan Indikator Kab/Kota" />
 
     <AppLayout :breadcrumbs="breadcrumbs">
-        <div class="flex flex-col gap-4 sm:p-4">
+        <div class="flex flex-col gap-4 p-2 sm:p-4">
             <Card>
-                <CardHeader>
-                    <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between sm:gap-4">
+                <CardHeader class="px-3 py-4 sm:px-4">
+                    <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
                         <div class="space-y-1">
-                            <CardTitle>Perhitungan Indikator Kab/Kota</CardTitle>
-                            <p class="text-sm text-muted-foreground">
+                            <CardTitle class="text-lg sm:text-xl">Perhitungan Indikator Kab/Kota</CardTitle>
+                            <p class="text-xs text-muted-foreground sm:text-sm">
                                 Data agregat indikator perhotelan per kabupaten/kota.
                             </p>
                         </div>
 
-                        <div class="shrink-0">
+                        <div class="w-full shrink-0 sm:w-auto">
                             <a-dropdown :open="dropdownOpen" :trigger="['click']" placement="bottomRight"
                                 @open-change="(val) => (dropdownOpen = val)">
-                                <a-button type="primary" @click="dropdownOpen = !dropdownOpen">
+                                <a-button type="primary" size="small" class="w-full sm:w-auto"
+                                    @click="dropdownOpen = !dropdownOpen">
                                     <template #icon><span>☰</span></template>
                                     Pilih Indikator
                                     <a-tag v-if="isIndeterminate" color="blue" class="ml-1 !py-0 !text-xs">
@@ -248,17 +310,18 @@ onMounted(() => {
                             </a-dropdown>
                         </div>
                     </div>
-                    <div class="mt-2 flex flex-wrap items-center justify-between gap-2">
-                        <div class="flex flex-wrap items-center gap-2">
-                            <a-select v-model:value="selectedMonth" placeholder="Semua Bulan" allow-clear class="w-40"
-                                @change="fetchData">
+                    <div
+                        class="mt-3 flex flex-col gap-2 sm:mt-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+                        <div class="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
+                            <a-select v-model:value="selectedMonth" placeholder="Semua Bulan" allow-clear
+                                class="w-full sm:w-40" size="small" @change="fetchData">
                                 <a-select-option v-for="m in props.months" :key="m.id" :value="m.id">
                                     {{ m.name }}
                                 </a-select-option>
                             </a-select>
 
-                            <a-select v-model:value="selectedYear" placeholder="Semua Tahun" allow-clear class="w-32"
-                                @change="fetchData">
+                            <a-select v-model:value="selectedYear" placeholder="Semua Tahun" allow-clear
+                                class="w-full sm:w-32" size="small" @change="fetchData">
                                 <a-select-option v-for="y in props.years" :key="y.id" :value="y.id">
                                     {{ y.name }}
                                 </a-select-option>
@@ -267,8 +330,15 @@ onMounted(() => {
                     </div>
                 </CardHeader>
 
-                <CardContent class="p-0 sm:px-6 sm:pb-6">
-                    <div class="overflow-hidden sm:rounded-lg sm:border sm:border-border">
+                <CardContent class="p-0 sm:px-4 sm:pb-6">
+                    <!-- Mobile Card View (visible only on mobile) -->
+                    <div class="sm:hidden">
+                        <IndicatorValuesMobile :data="rows" :loading="loading" :card-config="mobileCardConfig"
+                            empty-message="Tidak ada data" />
+                    </div>
+
+                    <!-- Desktop Table View (hidden on mobile, visible on sm and up) -->
+                    <div class="hidden overflow-hidden sm:block sm:rounded-lg sm:border sm:border-border">
                         <a-table :scroll="{ x: scrollX, y: '70vh' }" :columns="visibleColumns"
                             :row-key="record => record.regency.id" :data-source="rows" :loading="loading"
                             :pagination="false" size="small" bordered tableLayout="fixed" />

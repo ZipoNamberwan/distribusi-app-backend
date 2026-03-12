@@ -5,6 +5,7 @@ import AppLayout from '@/layouts/AppLayout.vue';
 import { index as predictionPage } from '@/routes/prediction/page';
 import { index as predictionIndex } from '@/routes/prediction/data';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import PredictionsMobile from '@/custom_components/mobile/PredictionsMobile.vue';
 
 const props = defineProps({
     months: { type: Array, required: true, default: () => [] },
@@ -146,6 +147,49 @@ onMounted(() => {
     window.addEventListener('resize', onResize);
     fetchData();
 });
+
+const mobileCardConfig = computed(() => ({
+    header: (record) => ({
+        title: record.regency?.name ?? '',
+        subtitle: record.regency?.long_code ?? '',
+    }),
+    sections: (record) => {
+        const sections = [];
+
+        // INDICATORS
+        props.indicators.forEach((ind) => {
+            const items = ind.categories.map((cat) => {
+                const key = `${ind.id}_${cat.id}`;
+                const val = record.values?.[key];
+                return { value: val?.den > 0 ? ((val.num / val.den) * ind.scale_factor).toFixed(2) : '-' };
+            });
+            sections.push({
+                title: `${ind.short_name ?? ind.name} ${period.value.month?.name ?? ''} ${period.value.year?.name ?? ''}`,
+                color: '#e6f4ff',
+                items,
+            });
+        });
+
+        // GROWTHS
+        growths.forEach((growth) => {
+            const items = props.categories.map((cat) => {
+                const key = cat.id;
+                const current = record[growth.key]?.[key]?.current;
+                const prev = record[growth.key]?.[key]?.prev ?? null;
+                const value = current !== null && prev !== null ? (((current - prev) / Math.abs(prev)) * 100).toFixed(2) : '-';
+                return { value };
+            });
+            sections.push({
+                title: growth.title,
+                color: '#fff7e6',
+                items,
+            });
+        });
+
+        return sections;
+    },
+    columns: ['B', 'NB'], // just for rendering the header once
+}));
 </script>
 
 <template>
@@ -153,33 +197,43 @@ onMounted(() => {
     <Head title="Prediksi TPK" />
 
     <AppLayout :breadcrumbs="breadcrumbs">
-        <div class="flex flex-col gap-4 sm:p-4">
+        <div class="flex flex-col gap-4 p-2 sm:p-4">
             <Card>
-                <CardHeader>
-                    <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between sm:gap-4">
+                <CardHeader class="px-3 py-4 sm:px-4">
+                    <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
                         <div class="space-y-1">
-                            <CardTitle>Prediksi TPK</CardTitle>
+                            <CardTitle class="text-lg sm:text-xl">Prediksi TPK</CardTitle>
                         </div>
                     </div>
-                    <div class="mt-2 flex flex-wrap items-center gap-2">
-                        <a-select v-model:value="selectedMonth" placeholder="Semua Bulan" allow-clear class="w-40"
-                            @change="fetchData">
-                            <a-select-option v-for="m in props.months" :key="m.id" :value="m.id">
-                                {{ m.name }}
-                            </a-select-option>
-                        </a-select>
+                    <div
+                        class="mt-3 flex flex-col gap-2 sm:mt-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+                        <div class="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
+                            <a-select v-model:value="selectedMonth" placeholder="Semua Bulan" allow-clear
+                                @change="fetchData" class="w-full sm:w-40">
+                                <a-select-option v-for="m in props.months" :key="m.id" :value="m.id">
+                                    {{ m.name }}
+                                </a-select-option>
+                            </a-select>
 
-                        <a-select v-model:value="selectedYear" placeholder="Semua Tahun" allow-clear class="w-32"
-                            @change="fetchData">
-                            <a-select-option v-for="y in props.years" :key="y.id" :value="y.id">
-                                {{ y.name }}
-                            </a-select-option>
-                        </a-select>
+                            <a-select v-model:value="selectedYear" placeholder="Semua Tahun" allow-clear
+                                @change="fetchData" class="w-full sm:w-32">
+                                <a-select-option v-for="y in props.years" :key="y.id" :value="y.id">
+                                    {{ y.name }}
+                                </a-select-option>
+                            </a-select>
+                        </div>
                     </div>
                 </CardHeader>
 
-                <CardContent class="p-0 sm:px-6 sm:pb-6">
-                    <div class="overflow-hidden sm:rounded-lg sm:border sm:border-border">
+                <CardContent class="p-0 sm:px-4 sm:pb-6">
+                    <!-- Mobile Card View (visible only on mobile) -->
+                    <div class="sm:hidden">
+                        <PredictionsMobile :data="rows" :loading="loading" :card-config="mobileCardConfig"
+                            empty-message="Tidak ada data" />
+                    </div>
+
+                    <!-- Desktop Table View (hidden on mobile, visible on sm and up) -->
+                    <div class="hidden overflow-hidden sm:block sm:rounded-lg sm:border sm:border-border">
                         <a-table :scroll="{ x: 1200, y: '70vh' }" :columns="columns"
                             :row-key="(record) => record.regency.id" :data-source="rows" :loading="loading"
                             :pagination="false" size="small" bordered />

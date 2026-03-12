@@ -5,6 +5,7 @@ import AppLayout from '@/layouts/AppLayout.vue';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { index as errorSummariesPage } from '@/routes/error_summaries/page';
 import { index as errorSummariesData } from '@/routes/error_summaries/data';
+import ErrorSummariesMobile from '@/custom_components/mobile/ErrorSummariesMobile.vue';
 
 const breadcrumbs = [
     {
@@ -124,6 +125,37 @@ const fetchData = async () => {
     }
 };
 
+const mobileCardConfig = computed(() => ({
+    header: (record) => ({
+        title: record.regency?.name ?? '',
+        subtitle: record.regency?.long_code ?? '',
+    }),
+    sections: (record) => {
+        const sections = [];
+
+        // Errors per category + total
+        props.errors.forEach((err) => {
+            const bg = ERROR_COLORS[err.code] ?? '#f5f5f5';
+            const items = props.categories.map((cat) => {
+                const key = `${err.id}_${cat.id}`;
+                return { value: record.values?.[key] ?? 0 };
+            });
+            // Add total column
+            const total = props.categories.reduce((acc, cat) => acc + (record.values?.[`${err.id}_${cat.id}`] ?? 0), 0);
+            items.push({ value: total });
+
+            sections.push({
+                title: err.name,
+                color: bg,
+                items,
+            });
+        });
+
+        return sections;
+    },
+    columns: ['B', 'NB', 'T'], // adjust if your categories are fixed
+}));
+
 onMounted(() => {
     window.addEventListener('resize', onResize);
     fetchData();
@@ -131,53 +163,53 @@ onMounted(() => {
 </script>
 
 <template>
+
     <Head title="Rekap Error" />
 
     <AppLayout :breadcrumbs="breadcrumbs">
-        <div class="flex flex-col gap-4 sm:p-4">
+        <div class="flex flex-col gap-4 p-2 sm:p-4">
             <Card>
-                <CardHeader>
-                    <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between sm:gap-4">
+                <CardHeader class="px-3 py-4 sm:px-4">
+                    <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
                         <div class="space-y-1">
-                            <CardTitle>Rekap Error Survei VHTS Kab/Kota</CardTitle>
-                            <p class="text-sm text-muted-foreground">
-                                Rekap jumlah error hotel dan indikator per kabupaten/kota.
-                            </p>
+                            <CardTitle class="text-lg sm:text-xl">Rekap Error</CardTitle>
                         </div>
                     </div>
-                    <div class="mt-2 flex flex-wrap items-center gap-2">
-                        <a-select v-model:value="selectedMonth" placeholder="Semua Bulan" allow-clear class="w-40"
-                            @change="fetchData">
-                            <a-select-option v-for="m in props.months" :key="m.id" :value="m.id">
-                                {{ m.name }}
-                            </a-select-option>
-                        </a-select>
+                    <div
+                        class="mt-3 flex flex-col gap-2 sm:mt-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+                        <div class="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
+                            <a-select v-model:value="selectedMonth" placeholder="Semua Bulan" allow-clear
+                                class="w-full sm:w-40" @change="fetchData">
+                                <a-select-option v-for="m in props.months" :key="m.id" :value="m.id">
+                                    {{ m.name }}
+                                </a-select-option>
+                            </a-select>
 
-                        <a-select v-model:value="selectedYear" placeholder="Semua Tahun" allow-clear class="w-32"
-                            @change="fetchData">
-                            <a-select-option v-for="y in props.years" :key="y.id" :value="y.id">
-                                {{ y.name }}
-                            </a-select-option>
-                        </a-select>
+                            <a-select v-model:value="selectedYear" placeholder="Semua Tahun" allow-clear
+                                class="w-full sm:w-32" @change="fetchData">
+                                <a-select-option v-for="y in props.years" :key="y.id" :value="y.id">
+                                    {{ y.name }}
+                                </a-select-option>
+                            </a-select>
+                        </div>
                     </div>
                 </CardHeader>
 
                 <CardContent class="p-0 sm:px-6 sm:pb-6">
-                    <div class="overflow-hidden sm:rounded-lg sm:border sm:border-border">
-                        <a-table
-                            :scroll="{ x: scrollX, y: '70vh' }"
-                            :columns="columns"
-                            :row-key="(record) => record.regency.id"
-                            :data-source="rows"
-                            :loading="loading"
-                            :pagination="false"
-                            size="small"
-                            bordered
-                        />
+                    <!-- Mobile Card View (visible only on mobile) -->
+                    <div class="sm:hidden">
+                        <ErrorSummariesMobile :data="rows" :loading="loading" :card-config="mobileCardConfig"
+                            empty-message="Tidak ada data" />
+                    </div>
+
+                    <!-- Desktop Table View (hidden on mobile, visible on sm and up) -->
+                    <div class="hidden overflow-hidden sm:block sm:rounded-lg sm:border sm:border-border">
+                        <a-table :scroll="{ x: scrollX, y: '70vh' }" :columns="columns"
+                            :row-key="(record) => record.regency.id" :data-source="rows" :loading="loading"
+                            :pagination="false" size="small" bordered />
                     </div>
                 </CardContent>
             </Card>
         </div>
     </AppLayout>
 </template>
-kjklj
