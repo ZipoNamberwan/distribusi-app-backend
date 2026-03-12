@@ -5,10 +5,11 @@ namespace App\Http\Controllers;
 use App\Models\Regency;
 use App\Models\Role;
 use App\Models\User;
-use Exception;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Symfony\Component\HttpFoundation\JsonResponse;
+use Illuminate\Validation\Rule;
+use Exception;
 
 class UserController extends Controller
 {
@@ -20,6 +21,23 @@ class UserController extends Controller
             'user/Index',
             ['regencies' => $regencies, 'roles' => $roles]
         );
+    }
+
+    /**
+     * Delete a user by ID.
+     *
+     * @param Request $request
+     * @return \Illuminate\Http\RedirectResponse
+     */
+    public function delete(String $id)
+    {
+        try {
+            $user = User::findOrFail($id);
+            $user->delete();
+            return back()->with('success', 'User berhasil dihapus');
+        } catch (Exception $e) {
+            return back()->with('error', $e->getMessage());
+        }
     }
 
     public function getUserData(Request $request): JsonResponse
@@ -49,6 +67,10 @@ class UserController extends Controller
 
         if (!empty($request->input('sortOrder')) && ! empty($request->input('sortField'))) {
             $orderColumn = $request->input('sortField');
+            if ($request->input('sortField') == 'regency') {
+                $orderColumn = 'regency_id';
+            
+            }
             $direction = $request->input('sortOrder') === 'ascend' ? 'asc' : 'desc';
             $orderDir = $direction;
         }
@@ -76,40 +98,46 @@ class UserController extends Controller
     {
         $validateArray = [
             'name' => 'required',
-            'email' => 'required|email|unique:users,email',
+            'email' => [
+                'required',
+                'email',
+                Rule::unique('users', 'id')->ignore($request->input('id')),
+            ],
             'regency' => 'required_if:type,monthly|exists:regencies,id',
             'role' => 'required|exists:roles,name',
         ];
 
+        $request->validate($validateArray);
+
         try {
-            $request->validate($validateArray);
             $userId = $request->input('id');
+
             if ($userId) {
-                // Update user
-                $user = User::find($userId);
-                if (!$user) {
-                    return response()->json(['success' => false, 'error' => 'User tidak ditemukan'], 404);
-                }
-                $user->name = $request->input('name');
-                $user->email = $request->input('email');
-                $user->regency_id = $request->input('regency');
-                $user->save();
-                $user->syncRoles([$request->input('role')]);
-                return response()->json(['success' => true, 'message' => 'User berhasil diupdate'], 200);
-            } else {
-                // Create user
-                $user = User::create([
+                $user = User::findOrFail($userId);
+
+                $user->update([
                     'name' => $request->input('name'),
                     'email' => $request->input('email'),
                     'regency_id' => $request->input('regency'),
-                    'password' => bcrypt('passwordMenikoJatim2026'),
                 ]);
-                $user->assignRole($request->input('role'));
-                
-                return response()->json(['success' => true, 'message' => 'User berhasil dibuat'], 201);
+
+                $user->syncRoles([$request->input('role')]);
+
+                return back()->with('success', 'User berhasil diupdate');
             }
+
+            $user = User::create([
+                'name' => $request->input('name'),
+                'email' => $request->input('email'),
+                'regency_id' => $request->input('regency'),
+                'password' => bcrypt('passwordMenikoJatim2026'),
+            ]);
+
+            $user->assignRole($request->input('role'));
+
+            return back()->with('success', 'User berhasil dibuat');
         } catch (Exception $e) {
-            return response()->json(['success' => false, 'error' => 'User gagal diproses: ' . $e->getMessage()], 500);
+            return back()->with('error', $e->getMessage());
         }
     }
 }

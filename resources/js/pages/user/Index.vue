@@ -1,11 +1,13 @@
 <script setup>
-import { Head } from '@inertiajs/vue3';
+import { Head, router } from '@inertiajs/vue3';
 import AppLayout from '@/layouts/AppLayout.vue';
-import { index as userPage } from '@/routes/user/page';
 import { usePagination } from 'vue-request';
 import { ref, computed } from 'vue';
+import { index as userPage } from '@/routes/user/page';
 import { index as userDataIndex } from '@/routes/user/data';
+import { index as userDelete } from '@/routes/user/delete';
 import UserForm from '@/custom_components/UserForm.vue';
+import { message } from 'ant-design-vue'
 
 const props = defineProps({
     regencies: {
@@ -34,21 +36,25 @@ const openFormDialog = ref(false);
 
 const columns = [
     {
-        title: 'Nama', dataIndex: 'name', width: '10%', customFilterDropdown: true,
+        title: 'Nama', dataIndex: 'name', width: 180, customFilterDropdown: true,
         onFilterDropdownOpenChange: visible => {
             if (visible) setTimeout(() => searchInput.value.focus(), 100);
         },
+        sorter: true,
+
     },
     {
-        title: 'Email', dataIndex: 'email', width: '10%', customFilterDropdown: true,
+        title: 'Email', dataIndex: 'email', width: 220, customFilterDropdown: true,
         onFilterDropdownOpenChange: visible => {
             if (visible) setTimeout(() => searchInput.value.focus(), 100);
         },
+        sorter: true,
+
     },
     {
         title: 'Regency',
         dataIndex: 'regency',
-        width: '12%',
+        width: 200,
         filters: (props.regencies ?? []).map(s => ({ text: `${s.long_code} ${s.name}`, value: s.id })),
         sorter: true,
         customRender: ({ record }) => `[${record.regency?.long_code}] ${record.regency?.name}` || '-',
@@ -56,7 +62,7 @@ const columns = [
     {
         title: 'Roles',
         dataIndex: 'roles',
-        width: '10%',
+        width: 180,
         filters: (props.roles ?? []).map(s => ({ text: s.name, value: s.name })),
         sorter: true,
         customRender: ({ record }) =>
@@ -67,7 +73,7 @@ const columns = [
     {
         title: 'Aksi',
         key: 'action',
-        width: '10%',
+        width: 140,
         align: 'center',
     },
 ];
@@ -163,8 +169,23 @@ const handleEdit = (record) => {
 };
 
 const handleDelete = (record) => {
-    // TODO: implement delete logic
-};
+    return new Promise((resolve, reject) => {
+        router.delete(userDelete(record.id).url, {
+            preserveScroll: true,
+
+            onSuccess: () => {
+                message.success('User berhasil dihapus')
+                handleRefresh()
+                resolve()
+            },
+
+            onError: () => {
+                message.error('Gagal menghapus user')
+                reject()
+            }
+        })
+    })
+}
 
 const handleSearch = (selectedKeys, confirm, dataIndex) => {
     confirm();
@@ -176,6 +197,14 @@ const openForm = (rec) => {
     userForm.value = rec;
     openFormDialog.value = true;
 };
+const handleRefresh = () => run({ ...lastParams.value });
+
+const handleSaved = () => {
+    openFormDialog.value = false   // close dialog
+    message.success('User berhasil disimpan', 7) // show message
+
+    handleRefresh()
+}
 </script>
 
 <template>
@@ -186,9 +215,9 @@ const openForm = (rec) => {
         <div class="flex flex-col gap-4 sm:p-4">
             <a-card title="Manajemen User">
                 <template #extra><a-button @click="openForm({})" type="primary">Tambah</a-button></template>
-                <a-table :scroll="{ x: 1600, y: '70vh' }" :columns="columns" :row-key="record => record.id"
-                    :data-source="dataSource?.list ?? []" :pagination="pagination" :loading="loading"
-                    @change="handleTableChange" size="small">
+                <a-table :columns="columns" :row-key="record => record.id" :data-source="dataSource?.list ?? []"
+                    :pagination="pagination" :loading="loading" @change="handleTableChange" size="small"
+                    :scroll="{ x: 900 }">
                     <template #bodyCell="{ column, record }">
                         <template v-if="column.key === 'action'">
                             <a-space size="small">
@@ -227,9 +256,9 @@ const openForm = (rec) => {
         </div>
 
         <a-modal v-model:open="openFormDialog" :title="Object.keys(userForm).length === 0 ? 'Tambah User' : 'Edit User'"
-            :footer="null" width="70%">
+            :footer="null">
             <UserForm :key="userForm?.id ?? 'create'" :user="userForm" :regencies="props.regencies" :roles="props.roles"
-                @saved="openFormDialog = false" />
+                @saved="handleSaved" />
         </a-modal>
     </AppLayout>
 </template>

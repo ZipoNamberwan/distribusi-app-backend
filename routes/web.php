@@ -51,6 +51,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     Route::get('user', [UserController::class, 'showUserPage'])->name('user.page.index');
     Route::post('user', [UserController::class, 'store'])->name('user.page.store');
+    Route::delete('user/{id}', [UserController::class, 'delete'])->name('user.delete.index');
     Route::get('user/data', [UserController::class, 'getUserData'])->name('user.data.index');
     
     Route::get('confirmation', [ConfirmationController::class, 'showConfirmationPage'])->name('confirmation.page.index');

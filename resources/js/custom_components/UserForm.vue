@@ -1,7 +1,8 @@
 <script setup>
-import { useForm } from '@inertiajs/vue3';
+import { useForm, usePage } from '@inertiajs/vue3';
 import { ref } from 'vue'
-import {store as storeUser} from '@/routes/user/page';
+import { store as storeUser } from '@/routes/user/page';
+import { message } from 'ant-design-vue'
 
 const props = defineProps({
     user: {
@@ -20,10 +21,11 @@ const props = defineProps({
         default: () => []
     },
 });
-
+const page = usePage();
 const emit = defineEmits(['saved'])
 
 const form = useForm({
+    id: props.user?.id ?? null,
     email: props.user?.email,
     name: props.user?.name,
     regency: props.user?.regency_id,
@@ -55,8 +57,18 @@ const submit = () => {
                 forceFormData: true,
                 preserveScroll: true,
                 onSuccess: () => {
-                    form.reset();
-                    formRef.value.resetFields();
+                    const flash = page.props.flash
+
+                    if (flash?.error) {
+                        message.error(flash.error, 7)
+                        return
+                    }
+
+                    form.reset()
+                    formRef.value.resetFields()
+
+                    emit('saved') 
+
                 },
             });
         })
@@ -67,7 +79,7 @@ const submit = () => {
 </script>
 
 <template>
-    <a-form layout="horizontal" :label-col="{ span: 3 }" :wrapper-col="{ span: 12 }" :model="form" :rules="rules"
+    <a-form layout="horizontal" :label-col="{ span: 6 }" :wrapper-col="{ span: 18 }" :model="form" :rules="rules"
         ref="formRef">
         <a-form-item name="email" label="Email" :validate-status="form.errors.email ? 'error' : undefined"
             :help="form.errors.email">
@@ -104,10 +116,8 @@ const submit = () => {
                     </a-button>
                 </div>
 
-                <!-- <a-alert v-if="page.props.flash?.success" type="success" show-icon :message="page.props.flash.success"
-                    closable />
                 <a-alert v-if="page.props.flash?.error" type="error" show-icon :message="page.props.flash.error"
-                    closable /> -->
+                    closable />
             </div>
         </a-form-item>
     </a-form>
