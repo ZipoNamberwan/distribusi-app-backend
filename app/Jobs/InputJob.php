@@ -4,9 +4,11 @@ namespace App\Jobs;
 
 use App\Exceptions\ImportException;
 use App\Models\Category;
+use App\Models\Confirmation;
 use App\Models\Enumeration;
 use App\Models\Error as ErrorModel;
 use App\Models\ErrorSummary;
+use App\Models\ErrorType;
 use App\Models\Indicator;
 use App\Models\IndicatorValue;
 use App\Models\Input;
@@ -67,13 +69,14 @@ class InputJob implements ShouldQueue
                 'xlsx' => $this->importInputXlsxFromStorage($relativePath, $syncStatus),
             };
 
-            Input::where('bulan', $syncStatus->month_id)
-                ->where('tahun', $syncStatus->year_id)
-                ->where('sync_status_id', '!=', (string) $syncStatus->id)
-                ->delete();
+            // Input::where('bulan', $syncStatus->month_id)
+            //     ->where('tahun', $syncStatus->year_id)
+            //     ->where('sync_status_id', '!=', (string) $syncStatus->id)
+            //     ->delete();
 
             $this->calculateIndicatorValues($syncStatus);
             $this->summarizeErrors($syncStatus);
+            $this->populateConfirmations($syncStatus);
             $this->calculateEnumerations($syncStatus);
 
             $syncStatus->update([
@@ -160,7 +163,9 @@ class InputJob implements ShouldQueue
         ];
 
         $allowedColumns = array_values(array_diff(
-            Schema::getColumnListing('input'),
+            Input::getModel()->getConnection()
+                ->getSchemaBuilder()
+                ->getColumnListing((new Input)->getTable()),
             array_merge(['id', 'created_at', 'updated_at', 'tahun', 'bulan', 'sync_status_id'], $computedColumns)
         ));
         $allowedLookup = array_fill_keys($allowedColumns, true);
@@ -187,7 +192,8 @@ class InputJob implements ShouldQueue
         }
 
         $maps = $this->buildInputForeignKeyMaps();
-        $indexes = $this->requiredInputForeignKeyIndexes($columnMap);
+        $fasihMaps = $this->buildIdFasihLookupMap($syncStatus->month_id, $syncStatus->year_id);
+        // $indexes = $this->requiredInputForeignKeyIndexes($columnMap);
         $monthDay = (int) ($maps['months'][$syncStatus->month_id] ?? 0);
 
         // FIX 2: Removed separate validateInputForeignKeysInXlsx pre-pass.
@@ -230,7 +236,8 @@ class InputJob implements ShouldQueue
         $emptyRecord['sync_status_id'] = null;
 
         $insertBatchSize = 500;
-        $buffer = [];
+        $insertBuffer = [];
+        $updateBuffer = [];
         $imported = 0;
         $missingRegencies = [];
 
@@ -256,10 +263,10 @@ class InputJob implements ShouldQueue
                 // FIX 3 (continued): Copy template with array union instead of array_merge.
                 $record = $emptyRecord;
                 $record['id'] = (string) Str::uuid();
-                $record['created_at'] = now();
-                $record['updated_at'] = now();
                 $record['tahun'] = $syncStatus->year_id;
                 $record['bulan'] = $syncStatus->month_id;
+                $record['created_at'] = now();
+                $record['updated_at'] = now();
                 $record['sync_status_id'] = (string) $syncStatus->id;
 
                 $hasAnyValue = false;
@@ -335,12 +342,35 @@ class InputJob implements ShouldQueue
                     );
                 }
 
-                $buffer[] = $record;
+                $idFasih = trim((string) ($record['id_fasih'] ?? ''));
 
-                if (count($buffer) >= $insertBatchSize) {
-                    Input::insert($buffer);
-                    $imported += count($buffer);
-                    $buffer = [];
+                if ($idFasih !== '' && isset($fasihMaps[$idFasih])) {
+                    $recordForUpdate = $record;
+                    unset($recordForUpdate['id']);
+                    unset($recordForUpdate['created_at']);
+                    $recordForUpdate['_id'] = $fasihMaps[$idFasih];
+                    $updateBuffer[] = $recordForUpdate;
+                } else {
+                    $insertBuffer[] = $record;
+                    if ($idFasih !== '') {
+                        $fasihMaps[$idFasih] = $record['id'];
+                    }
+                }
+
+                if (count($insertBuffer) >= $insertBatchSize) {
+                    Input::insert($insertBuffer);
+                    $imported += count($insertBuffer);
+                    $insertBuffer = [];
+                }
+
+                if (count($updateBuffer) >= $insertBatchSize) {
+                    foreach ($updateBuffer as $updateRecord) {
+                        $id = $updateRecord['_id'];
+                        unset($updateRecord['_id']);
+                        Input::where('id', $id)->update($updateRecord);
+                    }
+                    $imported += count($updateBuffer);
+                    $updateBuffer = [];
                 }
             }
 
@@ -354,9 +384,18 @@ class InputJob implements ShouldQueue
         // FIX 2 (continued): Report all missing regencies after the single pass.
         $this->throwIfMissingForeignKeys($missingRegencies);
 
-        if ($buffer !== []) {
-            Input::insert($buffer);
-            $imported += count($buffer);
+        if ($insertBuffer !== []) {
+            Input::insert($insertBuffer);
+            $imported += count($insertBuffer);
+        }
+
+        if ($updateBuffer !== []) {
+            foreach ($updateBuffer as $updateRecord) {
+                $id = $updateRecord['_id'];
+                unset($updateRecord['_id']);
+                Input::where('id', $id)->update($updateRecord);
+            }
+            $imported += count($updateBuffer);
         }
 
         return $imported;
@@ -379,21 +418,12 @@ class InputJob implements ShouldQueue
         ];
     }
 
-    /**
-     * @param  array<int, string>  $columnMap
-     * @return array{kode_kab: int}
-     */
-    private function requiredInputForeignKeyIndexes(array $columnMap): array
+    private function buildIdFasihLookupMap($month, $year): array
     {
-        $indexesByColumn = array_flip($columnMap);
-
-        if (! array_key_exists('kode_kab', $indexesByColumn)) {
-            throw new ImportException("Missing required column 'kode_kab' in file headers", "File is missing the required 'kode_kab' column");
-        }
-
-        return [
-            'kode_kab' => (int) $indexesByColumn['kode_kab'],
-        ];
+        return Input::where('bulan', $month)
+            ->where('tahun', $year)
+            ->pluck('id', 'id_fasih')
+            ->all();
     }
 
     /**
@@ -993,6 +1023,118 @@ class InputJob implements ShouldQueue
             throw new ImportException(
                 'Error summarization failed: ' . $e->getMessage(),
                 'Summarizing error failed'
+            );
+        }
+    }
+
+    private function populateConfirmations(SyncStatus $syncStatus): void
+    {
+        try {
+            $yearId = $syncStatus->year_id;
+            $monthId = $syncStatus->month_id;
+
+            // Get indicator IDs mapped by code
+            $errorTypes = ErrorType::query()
+                ->pluck('id', 'column_name');
+
+            // Get all input IDs for this month/year
+            $inputIds = Input::query()
+                ->where('tahun', $yearId)
+                ->where('bulan', $monthId)
+                ->pluck('id');
+
+            if ($inputIds->isEmpty()) {
+                return;
+            }
+
+            // Step 1: Set is_active = false for all existing confirmations
+            Confirmation::query()
+                ->whereIn('input_id', $inputIds)
+                ->update(['is_active' => false]);
+
+            $errorColumns = $errorTypes->keys()->toArray();
+            // Step 2: Get inputs with errors
+            $inputsWithErrors = Input::query()
+                ->select(array_merge(['id'], $errorColumns)) // include 'id' plus all error columns
+                ->where('tahun', $yearId)
+                ->where('bulan', $monthId)
+                ->where(function ($query) use ($errorColumns) {
+                    foreach ($errorColumns as $column) {
+                        $query->orWhere($column, '>', 0);
+                    }
+                })
+                ->get();
+
+            if ($inputsWithErrors->isEmpty()) {
+                return;
+            }
+
+            // Step 3: Collect all input_id + indicator_id combinations that should exist
+            $requiredCombinations = [];
+            foreach ($inputsWithErrors as $input) {
+                foreach ($errorTypes as $errorColumn => $errorTypeId) {
+                    if ($input->{$errorColumn} > 0) {
+                        $requiredCombinations[] = [
+                            'input_id' => $input->id,
+                            'error_type_id' => $errorTypeId,
+                        ];
+                    }
+                }
+            }
+
+            if (empty($requiredCombinations)) {
+                return;
+            }
+
+            // Step 4: Get existing confirmations for these combinations
+            $existingConfirmations = Confirmation::query()
+                ->whereIn('input_id', $inputIds)
+                ->get()
+                ->keyBy(fn($c) => $c->input_id . '_' . $c->error_type_id);
+
+            // Step 5: Prepare records to insert and update
+            $recordsToInsert = [];
+            $idsToActivate = [];
+            $now = now()->toDateTimeString();
+
+            foreach ($requiredCombinations as $combination) {
+                $key = $combination['input_id'] . '_' . $combination['error_type_id'];
+
+                if (isset($existingConfirmations[$key])) {
+                    // Existing record - mark for activation
+                    $idsToActivate[] = $existingConfirmations[$key]->id;
+                } else {
+                    // New record - prepare for insert
+                    $recordsToInsert[] = [
+                        'id' => (string) Str::uuid(),
+                        'input_id' => $combination['input_id'],
+                        'error_type_id' => $combination['error_type_id'],
+                        'status' => 'not_confirmed',
+                        'notes' => null,
+                        'is_active' => true,
+                        'created_at' => $now,
+                        'updated_at' => $now,
+                    ];
+                }
+            }
+
+            // Step 6: Activate existing records
+            if (!empty($idsToActivate)) {
+                Confirmation::query()
+                    ->whereIn('id', $idsToActivate)
+                    ->update(['is_active' => true, 'updated_at' => $now]);
+            }
+
+            // Step 7: Insert new records in batches
+            if (!empty($recordsToInsert)) {
+                foreach (array_chunk($recordsToInsert, 500) as $chunk) {
+                    Confirmation::insert($chunk);
+                }
+            }
+        } catch (Throwable $e) {
+            throw new ImportException(
+                'Confirmation population failed: ' . $e->getMessage(),
+                'Populating confirmations failed'
             );
         }
     }

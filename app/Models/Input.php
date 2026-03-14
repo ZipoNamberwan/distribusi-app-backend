@@ -10,8 +10,6 @@ class Input extends Model
 {
     use HasFactory, HasUuids;
 
-    protected $table = 'input';
-
     public $incrementing = false;
 
     protected $keyType = 'string';
@@ -31,11 +29,16 @@ class Input extends Model
         return $this->belongsTo(Month::class, 'bulan');
     }
     public function regency()
-    {        
+    {
         return $this->belongsTo(Regency::class, 'kode_kab');
     }
     public function syncStatus()
-    {        
+    {
         return $this->belongsTo(SyncStatus::class, 'sync_status_id');
+    }
+
+    public function confirmations()
+    {
+        return $this->hasMany(Confirmation::class, 'input_id');
     }
 }

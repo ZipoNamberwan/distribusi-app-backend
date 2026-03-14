@@ -4,6 +4,7 @@ namespace Database\Seeders;
 
 use App\Models\Category;
 use App\Models\Error;
+use App\Models\ErrorType;
 use App\Models\Indicator;
 use App\Models\Month;
 use App\Models\Regency;
@@ -96,6 +97,13 @@ class MasterSeeder extends Seeder
 
         Error::create(['code' => 'Hotel', 'name' => 'Error Hotel']);
         Error::create(['code' => 'Indikator', 'name' => 'Error Indikator']);
+
+        ErrorType::create(['code' => 'error_tpk', 'column_name' => 'error_tpk']);
+        ErrorType::create(['code' => 'error_rlmta', 'column_name' => 'error_rlmta']);
+        ErrorType::create(['code' => 'error_rlmtnus', 'column_name' => 'error_rlmtnus']);
+        ErrorType::create(['code' => 'error_gpr', 'column_name' => 'error_gpr']);
+        ErrorType::create(['code' => 'error_tptt', 'column_name' => 'error_tptt']);
+        ErrorType::create(['code' => 'error_hari', 'column_name' => 'error_hari']);        
 
         $adminprov = Role::create(['name' => 'adminprov']);
         $adminkab = Role::create(['name' => 'adminkab']);

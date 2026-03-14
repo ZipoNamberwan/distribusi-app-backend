@@ -11,8 +11,9 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('input', function (Blueprint $table) {
+        Schema::create('inputs', function (Blueprint $table) {
             $table->uuid('id')->primary();
+            $table->uuid('id_fasih')->nullable()->index();
 
             $table->date('tanggal_update')->nullable()->index();
             $table->string('tarikan_ke', 32)->nullable();
@@ -95,6 +96,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('input');
+        Schema::dropIfExists('inputs');
     }
 };
