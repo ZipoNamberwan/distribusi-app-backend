@@ -67,7 +67,28 @@ const getTextColor = (bgColor) => {
                             <!-- Section values -->
                             <div v-for="(item, iIndex) in section.items" :key="iIndex"
                                 class="text-center text-[11px] font-semibold tabular-nums">
-                                {{ item.value ?? '-' }}
+                                <template v-if="section.key === 'mom' || section.key === 'yoy'">
+
+                                    <template v-if="item.value == null || item.prev == null">
+                                        -
+                                    </template>
+
+                                    <template v-else>
+                                        <span :class="item.value >= 0 ? 'text-green-600' : 'text-red-600'"
+                                            class="inline-flex flex-col items-center gap-y-1">
+                                            <span class="inline-flex items-center">
+                                                <span>{{ item.value >= 0 ? '▲' : '▼' }}</span>
+                                                {{ item.value }}%
+                                            </span>
+                                            <span class="text-gray-400 leading-none">({{ item.prev }})</span>
+                                        </span>
+                                    </template>
+
+                                </template>
+
+                                <template v-else>
+                                    {{ item.value ?? '-' }}
+                                </template>
                             </div>
                         </div>
                     </div>

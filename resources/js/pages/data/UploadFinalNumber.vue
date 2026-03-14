@@ -32,24 +32,14 @@ const props = defineProps({
         required: true,
         default: () => []
     },
-    defaultMonth: {
-        type: Number,
-        required: false,
-        default: null,
-    },
-    defaultYear: {
-        type: Number,
-        required: false,
-        default: null,
-    },
 });
 
 const finalDataOpen = ref(false);
 const statusOpen = ref(false);
 const formRef = ref(null)
 const form = useForm({
-    year: props.defaultYear,
-    month: props.defaultMonth,
+    year: null,
+    month: null,
     file: null,
 });
 

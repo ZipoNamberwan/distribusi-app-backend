@@ -331,9 +331,9 @@ class FinalNumberJob implements ShouldQueue
     }
 
     /**
-     * Resolve a cell value to a non-negative decimal (defaults to 0.00).
+     * Resolve a cell value to a non-negative decimal (defaults to null).
      */
-    private function resolveDecimalValue(mixed $value): float
+    private function resolveDecimalValue(mixed $value): ?float
     {
         $string = trim($this->stringifyCellValue($value));
 
@@ -350,7 +350,7 @@ class FinalNumberJob implements ShouldQueue
         }
 
         // Parse as float, round to 2 decimals
-        return is_numeric($normalized) ? round((float) $normalized, 2) : 0.00;
+        return is_numeric($normalized) ? round((float) $normalized, 2) : null;
     }
 
     /**

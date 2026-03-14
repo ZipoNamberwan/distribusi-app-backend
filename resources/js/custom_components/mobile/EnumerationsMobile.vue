@@ -3,6 +3,7 @@ import { h } from 'vue';
 
 const props = defineProps({
     data: { type: Array, default: () => [] },
+    colorRange: { type: Array, default: () => [] },
     loading: { type: Boolean, default: false },
     cardConfig: { type: Object, required: true }, // { header: fn, sections: fn, columns: array of headers }
     emptyMessage: { type: String, default: 'Tidak ada data' },
@@ -66,12 +67,12 @@ const getTextColor = (bgColor) => {
                             <!-- Section values -->
                             <div v-for="(item, iIndex) in section.items" :key="iIndex"
                                 class="text-center text-[11px] font-semibold tabular-nums">
-                                {{ item.value ?? '-' }}
+                                <span>
+                                    {{ item.value ?? '-' }}
+                                </span>
                             </div>
-
                         </div>
                     </div>
-
                 </a-card>
             </div>
         </a-spin>

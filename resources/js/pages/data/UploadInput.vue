@@ -1,6 +1,6 @@
 <script setup>
 import { useForm, usePage } from '@inertiajs/vue3';
-import { ref, watch } from 'vue'
+import { ref, watch, computed } from 'vue'
 import { message } from 'ant-design-vue'
 import { index as storeUpload } from '@/routes/upload/store';
 import { index as downloadTemplate } from '@/routes/upload/template';
@@ -46,8 +46,8 @@ const props = defineProps({
 
 const form = useForm({
     target: 'input',
-    year: props.defaultYear,
-    month: props.defaultMonth,
+    year: null,
+    month: null,
     file: null,
 });
 
@@ -65,10 +65,16 @@ const rules = {
     ],
 }
 
-const fileList = ref([]);
+const fileList = computed({
+    get() {
+        return form.file ? [form.file] : []
+    },
+    set(files) {
+        form.file = files?.[0] ?? null
+    }
+})
 
 const onUploadChange = (info) => {
-    fileList.value = info.fileList;
     if (!info.fileList || info.fileList.length === 0) {
         form.file = null;
         return;
@@ -79,7 +85,6 @@ const onUploadChange = (info) => {
 
 const onUploadRemove = () => {
     form.file = null;
-    fileList.value = [];
     return true;
 };
 
@@ -92,9 +97,9 @@ const submit = () => {
                 preserveScroll: true,
                 onSuccess: () => {
                     form.reset();
-                    form.month = props.defaultMonth;
-                    form.year = props.defaultYear;
-                    fileList.value = [];
+                    // form.month = null;
+                    // form.year = null;
+                    // fileList.value = [];
                     formRef.value.resetFields();
                 },
             });

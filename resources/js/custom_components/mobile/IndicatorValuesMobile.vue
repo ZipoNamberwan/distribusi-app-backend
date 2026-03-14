@@ -87,10 +87,7 @@ const getTextColor = (bgColor) => {
                     <!-- COLUMN HEADER -->
                     <div class="grid grid-cols-4 text-center text-[11px] text-gray-500 font-semibold mb-1">
 
-                        <div></div>
-                        <div>B</div>
-                        <div>NB</div>
-                        <div>Total</div>
+                        <div v-for="(header, hIndex) in cardConfig.columnHeaders" :key="hIndex">{{ header }}</div>
 
                     </div>
 

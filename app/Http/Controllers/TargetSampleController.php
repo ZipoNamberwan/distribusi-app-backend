@@ -26,10 +26,9 @@ class TargetSampleController extends Controller
         $validateArray = [
             'type' => 'required|in:default,monthly',
             'file' => 'required|file|mimes:xlsx|max:10240',
-            'month' => 'required_if:type,monthly|exists:months,id',
+            'month' => 'required_if:type,monthly',
             'year' => 'required|exists:years,id',
         ];
-
         $request->validate($validateArray);
         $user = User::find(Auth::id());
 

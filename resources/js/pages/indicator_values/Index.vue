@@ -18,8 +18,8 @@ const props = defineProps({
     months: { type: Array, required: true, default: () => [] },
     years: { type: Array, required: true, default: () => [] },
     indicators: { type: Array, required: true, default: () => [] },
-    defaultMonth: { type: Number, required: false, default: null },
-    defaultYear: { type: Number, required: false, default: null },
+    regencies: { type: Array, required: true, default: () => [] },
+    initialPeriod: { type: Object, required: false, default: {} },
 });
 
 const visibleIndicators = ref(props.indicators.map((i) => i.id));
@@ -39,13 +39,7 @@ onUnmounted(() => window.removeEventListener('resize', onResize));
 
 const colWidth = computed(() => (isSmallScreen.value ? 40 : 90));
 
-const INDICATOR_COLORS = {
-    TPK: '#e6f4ff',
-    RLMTA: '#f6ffed',
-    RLMTN: '#fff7e6',
-    GPR: '#f9f0ff',
-    TPTT: '#fff0f6',
-};
+const BACKGROUND_COLORS = ['#e6f4ff', '#f6ffed', '#fff7e6', '#f9f0ff', '#fff0f6',]
 
 // =====================================================
 // MOBILE CARD CONFIGURATION
@@ -60,9 +54,9 @@ const mobileCardConfig = computed(() => ({
     // Define sections to display - each section represents an indicator
     sections: props.indicators
         .filter((ind) => visibleIndicators.value.includes(ind.id))
-        .map((ind) => ({
+        .map((ind, index) => ({
             title: ind.name,
-            color: INDICATOR_COLORS[ind.name] || '#f5f5f5',
+            color: BACKGROUND_COLORS[index % BACKGROUND_COLORS.length] || '#f5f5f5',
             // Function to dynamically generate items for this section
             items: (record) => {
                 const items = [];
@@ -102,22 +96,25 @@ const mobileCardConfig = computed(() => ({
                 return items;
             },
         })),
+
+    // columnHeaders: [...props.categories.map((cat) => cat.name), "Total"]
+    columnHeaders: ['', 'B', 'NB', 'Total'], // default headers if no indicators are available
 }));
 
 // =====================================================
 // TABLE CONFIGURATION (DESKTOP)
 // =====================================================
 const allIndicatorColumns = computed(() =>
-    props.indicators.map((ind) => {
-        const bg = INDICATOR_COLORS[ind.name] ?? '#f5f5f5';
+    props.indicators.map((ind, index) => {
+        const bg = BACKGROUND_COLORS[index % BACKGROUND_COLORS.length] ?? '#f5f5f5';
+        const cell = () => ({ style: { background: bg } });
         return {
             key: ind.id,
             title: ind.short_name ?? ind.name,
-            customHeaderCell: () => ({ style: { background: bg } }),
+            customHeaderCell: cell,
             children: [
                 ...ind.categories.map((cat) => {
                     const key = `${ind.id}_${cat.id}`;
-                    const cell = () => ({ style: { background: bg } });
                     return {
                         title: isSmallScreen.value ? (cat.short_name ?? cat.name) : (cat.name ?? cat.short_name),
                         key,
@@ -183,7 +180,7 @@ const visibleColumns = computed(() => [
         customRender: ({ record }) =>
             isSmallScreen.value
                 ? h('span', record.regency?.long_code ?? '')
-                : h('span', `[${record.regency?.long_code}] ${record.regency?.name}`),
+                : h('span', `[${record.regency?.long_code}] ${toTitleCase(record.regency?.name ?? '')}`),
     },
     ...allIndicatorColumns.value.filter((col) => visibleIndicators.value.includes(col.key)),
 ]);
@@ -227,18 +224,23 @@ const toggleIndicator = (id, checked) => {
 
 const dropdownOpen = ref(false);
 
-const selectedMonth = ref(props.defaultMonth);
-const selectedYear = ref(props.defaultYear);
+const selectedMonth = ref(props.initialPeriod.month.id);
+const selectedYear = ref(props.initialPeriod.year.id);
+const selectedRegency = ref([]);
+const selectedPeriod = ref(props.initialPeriod);
 
 const rows = ref([]);
+const filteredRows = ref([]);
 const loading = ref(false);
 
 const fetchData = async () => {
     loading.value = true;
+    selectedRegency.value = []; // reset regency filter when fetching new data
     try {
         const query = { start: 0, length: 10000 };
         if (selectedMonth.value) query.month = selectedMonth.value;
         if (selectedYear.value) query.year = selectedYear.value;
+
 
         const first = await fetch(dataIndex.url({ query }), {
             headers: { Accept: 'application/json' },
@@ -253,13 +255,31 @@ const fetchData = async () => {
                 credentials: 'same-origin',
             }).then((r) => r.json());
             rows.value = full.data;
+            filteredRows.value = full.data;
         } else {
             rows.value = first.data;
+            filteredRows.value = first.data;
         }
+        selectedPeriod.value = first.period;
     } finally {
         loading.value = false;
     }
 };
+
+const filterRegency = () => {
+    if (!selectedRegency.value.length) {
+        filteredRows.value = rows.value;
+        return;
+    }
+    filteredRows.value = rows.value.filter((r) => selectedRegency.value.includes(r.regency?.id));
+};
+
+function toTitleCase(str) {
+    return str
+        .toLowerCase()
+        .replace(/\b\w/g, char => char.toUpperCase());
+}
+
 </script>
 
 <template>
@@ -272,10 +292,26 @@ const fetchData = async () => {
                 <CardHeader class="px-3 py-4 sm:px-4">
                     <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
                         <div class="space-y-1">
-                            <CardTitle class="text-lg sm:text-xl">Perhitungan Indikator Kab/Kota</CardTitle>
+                            <CardTitle class="text-lg sm:text-xl">
+                                Perhitungan Indikator Kab/Kota
+                                <div
+                                    class="inline-flex items-center gap-1.5 px-2.5 py-1 bg-blue-50 border border-blue-200 rounded">
+                                    <svg class="w-3.5 h-3.5 text-blue-600" fill="none" stroke="currentColor"
+                                        viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                            d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z">
+                                        </path>
+                                    </svg>
+                                    <span class="text-sm font-semibold text-blue-700">
+                                        {{ `${selectedPeriod.month.name} ${selectedPeriod.year.name}` }}
+                                    </span>
+                                </div>
+                            </CardTitle>
                             <p class="text-xs text-muted-foreground sm:text-sm">
                                 Data agregat indikator perhotelan per kabupaten/kota.
                             </p>
+                            <!-- Colored Badge Style with Icon -->
+
                         </div>
 
                         <div class="w-full shrink-0 sm:w-auto">
@@ -313,17 +349,23 @@ const fetchData = async () => {
                     <div
                         class="mt-3 flex flex-col gap-2 sm:mt-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
                         <div class="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
-                            <a-select v-model:value="selectedMonth" placeholder="Semua Bulan" allow-clear
-                                class="w-full sm:w-40" size="small" @change="fetchData">
+                            <a-select v-model:value="selectedMonth" placeholder="Semua Bulan" class="w-full sm:w-40"
+                                @change="fetchData">
                                 <a-select-option v-for="m in props.months" :key="m.id" :value="m.id">
                                     {{ m.name }}
                                 </a-select-option>
                             </a-select>
-
-                            <a-select v-model:value="selectedYear" placeholder="Semua Tahun" allow-clear
-                                class="w-full sm:w-32" size="small" @change="fetchData">
+                            <a-select v-model:value="selectedYear" placeholder="Semua Tahun" class="w-full sm:w-32"
+                                @change="fetchData">
                                 <a-select-option v-for="y in props.years" :key="y.id" :value="y.id">
                                     {{ y.name }}
+                                </a-select-option>
+                            </a-select>
+                            <a-select max-tag-count="responsive" mode="multiple" v-model:value="selectedRegency"
+                                placeholder="Semua Kabupaten/Kota" allow-clear class="w-full sm:w-40"
+                                @change="filterRegency()">
+                                <a-select-option v-for="r in props.regencies" :key="r.id" :value="r.id">
+                                    [{{ r.long_code }}] {{ toTitleCase(r.name) }}
                                 </a-select-option>
                             </a-select>
                         </div>
@@ -333,14 +375,14 @@ const fetchData = async () => {
                 <CardContent class="p-0 sm:px-4 sm:pb-6">
                     <!-- Mobile Card View (visible only on mobile) -->
                     <div class="sm:hidden">
-                        <IndicatorValuesMobile :data="rows" :loading="loading" :card-config="mobileCardConfig"
+                        <IndicatorValuesMobile :data="filteredRows" :loading="loading" :card-config="mobileCardConfig"
                             empty-message="Tidak ada data" />
                     </div>
 
                     <!-- Desktop Table View (hidden on mobile, visible on sm and up) -->
                     <div class="hidden overflow-hidden sm:block sm:rounded-lg sm:border sm:border-border">
-                        <a-table :scroll="{ x: scrollX, y: '70vh' }" :columns="visibleColumns"
-                            :row-key="record => record.regency.id" :data-source="rows" :loading="loading"
+                        <a-table :scroll="{ x: '70vw', y: '70vh' }" :columns="visibleColumns"
+                            :row-key="record => record.regency.id" :data-source="filteredRows" :loading="loading"
                             :pagination="false" size="small" bordered tableLayout="fixed" />
                     </div>
                 </CardContent>

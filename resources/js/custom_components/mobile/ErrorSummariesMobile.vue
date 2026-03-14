@@ -37,7 +37,7 @@ const getTextColor = (bgColor) => {
                             {{ getHeaderInfo(record).subtitle }}
                         </a-typography-text>
                         <br />
-                        <a-typography-title :level="5" class="!m-0">
+                        <a-typography-title :level="5">
                             {{ getHeaderInfo(record).title }}
                         </a-typography-title>
                     </div>
@@ -65,7 +65,14 @@ const getTextColor = (bgColor) => {
                             <!-- Section values -->
                             <div v-for="(item, iIndex) in section.items" :key="iIndex"
                                 class="text-center text-[11px] font-semibold tabular-nums">
-                                {{ item.value ?? '-' }}
+                                <span v-if="item.value !== null && item.value > 0"
+                                    class="bg-red-100 text-red-700 px-1 rounded">
+                                    {{ item.value }}
+                                </span>
+
+                                <span v-else>
+                                    {{ item.value ?? '-' }}
+                                </span>
                             </div>
 
                         </div>

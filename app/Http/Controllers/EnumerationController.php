@@ -6,7 +6,9 @@ use App\Models\Year;
 use App\Models\Month;
 use App\Models\Category;
 use App\Models\Enumeration;
+use App\Models\Regency;
 use App\Models\SampleTarget;
+use DateTime;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Illuminate\Http\Request;
@@ -17,23 +19,24 @@ class EnumerationController extends Controller
     public function showEnumerationPage()
     {
         $months = Month::all();
-        $years = Year::all();
+        $years = Year::where('name', '<=', (string) now()->year)->get();
         $categories = Category::whereNotNull('code')->orderBy('id')->get();
 
-        $latestPeriod = DB::table('enumerations as e')
-            ->join('years as y', 'y.id', '=', 'e.year_id')
-            ->join('months as m', 'm.id', '=', 'e.month_id')
-            ->orderByDesc('y.name')
-            ->orderByDesc('m.id')
-            ->select('e.month_id', 'e.year_id')
-            ->first();
+        $date = new DateTime('first day of last month');
+        $year = Year::where('code', $date->format('Y'))->first();
+        $month = Month::where('code', $date->format('m'))->first();
+
+        $regencies = Regency::all();
 
         return Inertia::render('enumerations/Index', [
             'months' => $months,
             'years' => $years,
             'categories' => $categories,
-            'defaultMonth' => $latestPeriod?->month_id,
-            'defaultYear' => $latestPeriod?->year_id,
+            'regencies' => $regencies,
+            'initialPeriod' => [
+                'month' => $month,
+                'year' => $year,
+            ],
         ]);
     }
 
@@ -43,16 +46,10 @@ class EnumerationController extends Controller
         $year = $request->year;
 
         if ($month == null || $year == null) {
-            $latestPeriod = DB::table('enumerations as e')
-                ->join('years as y', 'y.id', '=', 'e.year_id')
-                ->join('months as m', 'm.id', '=', 'e.month_id')
-                ->orderByDesc('y.name')
-                ->orderByDesc('m.id')
-                ->select('e.month_id', 'e.year_id')
-                ->first();
-
-            $month = $latestPeriod?->month_id;
-            $year = $latestPeriod?->year_id;
+            return response()->json([
+                'data' => [],
+                'total' => 0,
+            ]);
         }
 
         $progress = Enumeration::query()
@@ -98,9 +95,17 @@ class EnumerationController extends Controller
             })
             ->values();
 
+
+        $year = Year::find($request->input('year'));
+        $month = Month::find($request->input('month'));
+
         return response()->json([
             'data' => $data,
             'total' => $data->count(),
+            'period' => [
+                'month' => $month,
+                'year' => $year,
+            ],
         ]);
     }
 }

@@ -11,6 +11,7 @@ use App\Models\Input;
 use App\Models\Month;
 use App\Models\Regency;
 use App\Models\SyncStatus;
+use DateTime;
 use Inertia\Inertia;
 use Symfony\Component\HttpFoundation\JsonResponse;
 
@@ -107,24 +108,26 @@ class DataController extends Controller
     public function showIndicatorValuesPage()
     {
         $months = Month::all();
-        $years = Year::all();
+        $years = Year::where('name', '<=', (string) now()->year)->get();
         $categories = Category::whereNotNull('code')->orderBy('id')->get();
         $indicators = Indicator::orderBy('id')->get()->map(fn($ind) => array_merge(
             $ind->toArray(),
             ['categories' => $categories->toArray()]
         ));
 
-        $latestValue = IndicatorValue::with(['year', 'month'])
-            ->orderByDesc('year_id')
-            ->orderByDesc('month_id')
-            ->first();
+        $date = new DateTime('first day of last month');
+
+        $year = Year::where('code', $date->format('Y'))->first();
+        $month = Month::where('code', $date->format('m'))->first();
+
+        $regencies = Regency::all();
 
         return Inertia::render('indicator_values/Index', [
-            'months'       => $months,
-            'years'        => $years,
-            'indicators'   => $indicators->values(),
-            'defaultMonth' => $latestValue?->month_id,
-            'defaultYear'  => $latestValue?->year_id,
+            'months' => $months,
+            'years' => $years,
+            'indicators' => $indicators->values(),
+            'initialPeriod' => ['month' => $month, 'year' => $year],
+            'regencies' => $regencies,
         ]);
     }
 
@@ -140,6 +143,13 @@ class DataController extends Controller
         if ($request->input('year') !== null) {
             $query->where('year_id', $request->input('year'));
         }
+
+        if ($request->input('year') == null || $request->input('month') == null) {
+            return response()->json(['data' => [], 'total' => 0]);
+        }
+
+        $year = Year::find($request->input('year'));
+        $month = Month::find($request->input('month'));
 
         $orderDir = (! empty($request->input('sortOrder')) && $request->input('sortOrder') === 'descend') ? 'desc' : 'asc';
 
@@ -165,7 +175,11 @@ class DataController extends Controller
             ];
         })->values();
 
-        return response()->json(['data' => $data, 'total' => $total]);
+        return response()->json([
+            'data' => $data,
+            'total' => $total,
+            'period' => ['month' => $month, 'year' => $year]
+        ]);
     }
 
     public function getUploadStatusData($type, Request $request): JsonResponse

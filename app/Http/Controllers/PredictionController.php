@@ -8,6 +8,8 @@ use App\Models\Category;
 use App\Models\FinalNumber;
 use App\Models\Indicator;
 use App\Models\IndicatorValue;
+use App\Models\Regency;
+use DateTime;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -17,25 +19,48 @@ class PredictionController extends Controller
     public function showPredictionPage()
     {
         $months = Month::all();
-        $years = Year::all();
+        $years = Year::where('name', '<=', (string) now()->year)->get();
         $categories = Category::whereNotNull('code')->orderBy('id')->get();
         $indicators = Indicator::where('name', 'TPK')->get()->map(fn($ind) => array_merge(
             $ind->toArray(),
             ['categories' => $categories->toArray()]
         ));
 
-        $latestValue = IndicatorValue::with(['year', 'month'])
-            ->orderByDesc('year_id')
-            ->orderByDesc('month_id')
-            ->first();
+        $date = new DateTime('first day of last month');
 
+        $year = Year::where('code', $date->format('Y'))->first();
+        $month = Month::where('code', $date->format('m'))->first();
+
+        $prevMonthDate = clone $date;
+        $prevMonthDate->modify('-1 month');
+
+        $prevMonth = Month::where('code', $prevMonthDate->format('m'))->first();
+        $prevMonthYear = Year::where('code', $prevMonthDate->format('Y'))->first();
+
+        $prevYearDate = clone $date;
+        $prevYearDate->modify('-1 year');
+
+        $sameMonthPrevYear = Month::where('code', $prevYearDate->format('m'))->first();
+        $prevYear = Year::where('code', $prevYearDate->format('Y'))->first();
+
+        $regencies = Regency::all();
         return Inertia::render('predictions/Index', [
             'months' => $months,
             'years' => $years,
             'categories' => $categories,
             'indicators' => $indicators,
-            'defaultMonth' => $latestValue?->month_id,
-            'defaultYear' => $latestValue?->year_id,
+            'regencies' => $regencies,
+            'initialPeriod' => [
+                'current' => ['month' => $month, 'year' => $year],
+                'previousMonth' => [
+                    'month' => $prevMonth,
+                    'year' => $prevMonthYear,
+                ],
+                'sameMonthPreviousYear' => [
+                    'month' => $sameMonthPrevYear,
+                    'year' => $prevYear,
+                ],
+            ],
         ]);
     }
 
@@ -51,13 +76,10 @@ class PredictionController extends Controller
         $year = $request->input('year');
 
         if ($month == null || $year == null) {
-            $latestValue = IndicatorValue::with(['year', 'month'])
-                ->orderByDesc('year_id')
-                ->orderByDesc('month_id')
-                ->first();
-
-            $month = $latestValue?->month_id;
-            $year = $latestValue?->year_id;
+            return response()->json([
+                'data' => [],
+                'total' => 0,
+            ]);
         }
 
         if ($month) {
@@ -103,7 +125,7 @@ class PredictionController extends Controller
                     ->where('month_id', $prevMonth)
                     ->where('year_id', $prevYear)
                     ->first();
-                $prev = $prevFinal ? $prevFinal->value : null;
+                $prev = isset($prevFinal?->value) ? (float) $prevFinal->value : null;
                 $mom[(string)$catId] = [
                     'current' => $current,
                     'prev' => $prev,
@@ -115,7 +137,8 @@ class PredictionController extends Controller
                     ->where('month_id', $month)
                     ->where('year_id', $year - 1)
                     ->first();
-                $yoyPrev = $yoyFinal ? $yoyFinal->value : null;
+
+                $yoyPrev = isset($yoyFinal?->value) ? (float) $yoyFinal->value : null;
                 $yoy[(string)$catId] = [
                     'current' => $current,
                     'prev' => $yoyPrev,
@@ -134,10 +157,30 @@ class PredictionController extends Controller
             ];
         })->values();
 
+        $month = Month::find($month);
+        $year = Year::find($year);
+        $date = new DateTime("$year->name-$month->code-01");
+
+        $prevMonthDate = clone $date;
+        $prevMonthDate->modify('-1 month');
+        $prevMonth = Month::where('code', $prevMonthDate->format('m'))->first();
+        $prevMonthYear = Year::where('code', $prevMonthDate->format('Y'))->first();
+
+        $prevYearDate = clone $date;
+        $prevYearDate->modify('-1 year');
+        $sameMonthPrevYear = Month::where('code', $prevYearDate->format('m'))->first();
+        $prevYear = Year::where('code', $prevYearDate->format('Y'))->first();
+
+
+
         return response()->json([
             'data' => $data,
             'total' => $total,
-            'period' => ['month' => Month::find($month), 'year' => Year::find($year)]
+            'period' => [
+                'current' => ['month' => $month, 'year' => $year],
+                'previousMonth' => ['month' => $prevMonth, 'year' => $prevMonthYear],
+                'sameMonthPreviousYear' => ['month' => $sameMonthPrevYear, 'year' => $prevYear],
+            ],
         ]);
     }
 }

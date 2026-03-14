@@ -51,8 +51,8 @@ const statusOpen = ref(false);
 
 const form = useForm({
     type: null,
-    year: props.defaultYear,
-    month: props.defaultMonth,
+    year: null,
+    month: null,
     file: null,
 });
 
