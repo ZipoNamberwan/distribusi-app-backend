@@ -190,9 +190,11 @@ const handleDelete = (record) => {
 const handleSearch = (selectedKeys, confirm, dataIndex) => {
     confirm();
 };
+
 const handleReset = clearFilters => {
     clearFilters({ confirm: true });
 };
+
 const openForm = (rec) => {
     userForm.value = rec;
     openFormDialog.value = true;

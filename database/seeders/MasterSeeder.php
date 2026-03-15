@@ -98,12 +98,12 @@ class MasterSeeder extends Seeder
         Error::create(['code' => 'Hotel', 'name' => 'Error Hotel']);
         Error::create(['code' => 'Indikator', 'name' => 'Error Indikator']);
 
-        ErrorType::create(['code' => 'error_tpk', 'column_name' => 'error_tpk']);
-        ErrorType::create(['code' => 'error_rlmta', 'column_name' => 'error_rlmta']);
-        ErrorType::create(['code' => 'error_rlmtnus', 'column_name' => 'error_rlmtnus']);
-        ErrorType::create(['code' => 'error_gpr', 'column_name' => 'error_gpr']);
-        ErrorType::create(['code' => 'error_tptt', 'column_name' => 'error_tptt']);
-        ErrorType::create(['code' => 'error_hari', 'column_name' => 'error_hari']);        
+        ErrorType::create(['code' => 'error_tpk', 'column_name' => 'error_tpk', 'color' => 'red']);
+        ErrorType::create(['code' => 'error_rlmta', 'column_name' => 'error_rlmta', 'color' => 'green']);
+        ErrorType::create(['code' => 'error_rlmtnus', 'column_name' => 'error_rlmtnus', 'color' => 'orange']);
+        ErrorType::create(['code' => 'error_gpr', 'column_name' => 'error_gpr', 'color' => 'purple']);
+        ErrorType::create(['code' => 'error_tptt', 'column_name' => 'error_tptt', 'color' => 'cyan']);
+        ErrorType::create(['code' => 'error_hari', 'column_name' => 'error_hari', 'color' => 'blue']);        
 
         $adminprov = Role::create(['name' => 'adminprov']);
         $adminkab = Role::create(['name' => 'adminkab']);

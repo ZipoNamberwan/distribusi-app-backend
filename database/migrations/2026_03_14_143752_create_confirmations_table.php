@@ -15,6 +15,7 @@ return new class extends Migration
             $table->id();
             $table->string('column_name');
             $table->string('code')->nullable();
+            $table->string('color')->nullable();
         });
 
         Schema::create('confirmations', function (Blueprint $table) {
@@ -24,7 +25,6 @@ return new class extends Migration
             $table->enum('status', ['not_confirmed', 'confirmed', 'approved', 'pending', 'other'])->default('not_confirmed');
             $table->text('notes')->nullable();
             $table->boolean('is_active')->default(false);
-            $table->boolean('is_approved')->default(false);
             $table->foreignUuid('sent_by_id')->nullable()->constrained('users');
             $table->foreignUuid('approved_by_id')->nullable()->constrained('users');
             $table->timestamps();

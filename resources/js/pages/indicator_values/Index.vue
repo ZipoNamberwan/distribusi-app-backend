@@ -241,7 +241,6 @@ const fetchData = async () => {
         if (selectedMonth.value) query.month = selectedMonth.value;
         if (selectedYear.value) query.year = selectedYear.value;
 
-
         const first = await fetch(dataIndex.url({ query }), {
             headers: { Accept: 'application/json' },
             credentials: 'same-origin',
