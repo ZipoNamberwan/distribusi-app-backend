@@ -254,7 +254,14 @@ const mobileCardConfig = computed(() => ({
     columns: ['B', 'NB'], // just for rendering the header once
 }));
 
-const filterRegency = () => {
+const filterRegency = (input, option) => {
+    const regency = props.regencies.find(r => r.id === option.value)
+    if (!regency) return false
+    const label = `[${regency.long_code}] ${toTitleCase(regency.name)}`.toLowerCase()
+    return label.includes(input.toLowerCase())
+}
+
+const filterRegencyFromData = () => {
     if (!selectedRegency.value.length) {
         filteredRows.value = rows.value;
         return;
@@ -313,7 +320,7 @@ function toTitleCase(str) {
                             </a-select>
                             <a-select max-tag-count="responsive" mode="multiple" v-model:value="selectedRegency"
                                 placeholder="Semua Kabupaten/Kota" allow-clear class="w-full sm:w-40"
-                                @change="filterRegency()">
+                                @change="filterRegencyFromData()" :filter-option="filterRegency">
                                 <a-select-option v-for="r in props.regencies" :key="r.id" :value="r.id">
                                     [{{ r.long_code }}] {{ toTitleCase(r.name) }}
                                 </a-select-option>

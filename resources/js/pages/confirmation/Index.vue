@@ -1,11 +1,17 @@
 <script setup>
-import { Head } from '@inertiajs/vue3';
+import { Head, useForm, usePage, router } from '@inertiajs/vue3';
+import { message } from 'ant-design-vue'
 import AppLayout from '@/layouts/AppLayout.vue';
 import { index as confirmationPage } from '@/routes/user/page';
-import { ref, computed, h } from 'vue';
+import { ref, computed, watch, h } from 'vue';
 import { usePagination } from 'vue-request';
 import { index as confirmationDataIndex } from '@/routes/confirmation/data';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { store as confirmationStore } from '@/routes/confirmation/confirm';
+import { store as approveStore } from '@/routes/confirmation/approve';
+import { HomeOutlined, EnvironmentOutlined, TableOutlined, InfoCircleOutlined } from '@ant-design/icons-vue';
+import ConfirmationsMobile from '@/custom_components/mobile/ConfirmationsMobile.vue';
+import debounce from 'lodash/debounce'
 
 const breadcrumbs = [
     {
@@ -14,6 +20,7 @@ const breadcrumbs = [
     },
 ];
 
+const page = usePage();
 const props = defineProps({
     months: { type: Array, required: true, default: () => [] },
     years: { type: Array, required: true, default: () => [] },
@@ -23,32 +30,63 @@ const props = defineProps({
     initialPeriod: { type: Object, required: false, default: {} },
 });
 
+const roles = page.props.auth.roles;
+
 const lastParams = ref({});
 const selectedMonth = ref(props.initialPeriod.month.id);
 const selectedYear = ref(props.initialPeriod.year.id);
 const selectedStatus = ref();
 const selectedErrorType = ref();
 const selectedRegency = ref([]);
+const selectedConfirmation = ref({});
+const searchKeyword = ref(null);
+const isFormDialogOpen = ref(false);
+const formKey = ref(0);
+const formRef = ref(null);
+const form = useForm({
+    id: null,
+    notes: null,
+    record: null,
+});
+const selectedRowKeys = ref([])
+
+const rowSelection = computed(() => ({
+    selectedRowKeys: selectedRowKeys.value,
+    preserveSelectedRowKeys: true,
+    onChange: (keys) => {
+        selectedRowKeys.value = keys
+    },
+    getCheckboxProps: (record) => ({
+        disabled: record.status !== 'approved' && record.status !== 'confirmed' && record.status !== 'rejected',
+    })
+}))
+
+const rules = {
+    notes: [
+        { required: true, message: 'Catatan masih kosong', trigger: 'change' },
+    ],
+}
 
 const columns = [
     {
-        title: 'Area',
-        key: 'area',
-        width: 200,
-    },
-    {
         title: 'Nama Komersial',
         key: 'nama',
-        width: 250, // second longest
+        width: 150, // second longest
+        fixed: 'left',
     },
     {
-        title: 'Bulan',
-        key: 'month',
-        width: 100,
+        title: 'Wilayah',
+        key: 'area',
+        width: 120,
     },
     {
-        title: 'Tahun',
-        key: 'year',
+        title: 'Status',
+        key: 'status',
+        width: 180,
+    },
+    {
+        title: 'Periode',
+        key: 'period',
         width: 100,
     },
     {
@@ -62,11 +100,6 @@ const columns = [
         width: 350, // longest
     },
     {
-        title: 'Status',
-        key: 'status',
-        width: 180,
-    },
-    {
         title: 'Sent / Approved By',
         key: 'confirmation',
         width: 220,
@@ -74,7 +107,7 @@ const columns = [
     {
         title: 'Action',
         key: 'action',
-        width: 120,
+        width: 170,
     },
 ];
 
@@ -186,6 +219,19 @@ const handleFilter = () => {
     });
 };
 
+const onSearch = () => {
+    const { search: _search, ...rest } = lastParams.value;
+
+    run({
+        ...rest,
+        current: 1,
+        ...(searchKeyword.value ? { search: searchKeyword.value } : {}),
+    });
+};
+const debouncedSearch = debounce(onSearch, 500)
+
+const handleRefresh = () => run({ ...lastParams.value });
+
 function toTitleCase(str) {
     return str
         .toLowerCase()
@@ -200,6 +246,8 @@ function getStatusInfo(status) {
             return { color: 'orange', label: 'Sudah Dikonfirmasi' };
         case 'approved':
             return { color: 'green', label: 'Approved' };
+        case 'rejected':
+            return { color: 'volcano', label: 'Rejected' };
         case 'pending':
             return { color: 'blue', label: 'Pending' };
         case 'other':
@@ -208,6 +256,91 @@ function getStatusInfo(status) {
             return { color: 'default', label: '-' };
     }
 }
+
+const onConfirm = ((record) => {
+    isFormDialogOpen.value = true
+    selectedConfirmation.value = record
+    form.notes = record.notes
+    form.id = record.id
+    form.record = record
+})
+
+const submit = () => {
+    formRef.value
+        .validate()
+        .then(() => {
+            form.post(confirmationStore().url, {
+                forceFormData: true,
+                preserveScroll: true,
+                onSuccess: () => {
+                    form.reset();
+                    formRef.value.resetFields();
+                    handleRefresh();
+                    isFormDialogOpen.value = false;
+                },
+            });
+        })
+        .catch(() => {
+            // console.log('client validation failed')
+        })
+};
+
+const filterRegency = (input, option) => {
+    const regency = props.regencies.find(r => r.id === option.value)
+    if (!regency) return false
+    const label = `[${regency.long_code}] ${toTitleCase(regency.name)}`.toLowerCase()
+    return label.includes(input.toLowerCase())
+}
+
+const handleApprove = (ids, status) => {
+    return new Promise((resolve, reject) => {
+        router.post(approveStore().url,
+            {
+                ids: ids,
+                status: status
+            }, {
+            preserveScroll: true,
+
+            onSuccess: () => {
+                selectedRowKeys.value = []
+                handleRefresh()
+                resolve()
+            },
+
+            onError: (errors) => {
+                const firstError = Object.values(errors)[0]
+
+                if (firstError) {
+                    message.error(firstError)
+                } else {
+                    message.error('Terjadi kesalahan')
+                }
+
+                reject(errors)
+            }
+        })
+    })
+}
+
+watch(isFormDialogOpen, (isOpen) => {
+    if (isOpen) {
+        formKey.value++;
+    }
+});
+
+watch(
+    () => page.props.flash,
+    (flash) => {
+        if (flash.success) {
+            message.success(flash.success, 5)
+        }
+
+        if (flash.error) {
+            message.error(flash.error, 5)
+        }
+    },
+    { immediate: true }
+);
 </script>
 
 <template>
@@ -225,126 +358,249 @@ function getStatusInfo(status) {
                             </CardTitle>
                         </div>
                     </div>
-                    <div
-                        class="mt-3 flex flex-col gap-2 sm:mt-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
-                        <div class="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
-                            <a-select v-model:value="selectedMonth" placeholder="Semua Bulan" class="w-full sm:w-40"
+                    <a-row class="px-2">
+                        <a-col :span="24">
+                            <a-input @change="debouncedSearch" allow-clear v-model:value="searchKeyword"
+                                placeholder="Cari..." />
+                        </a-col>
+                    </a-row>
+                    <a-row :gutter="[8, 8]" class="px-2">
+                        <a-col :xs="24" :sm="12" :md="8" :lg="5">
+                            <a-select v-model:value="selectedMonth" placeholder="Semua Bulan" class="w-full"
                                 @change="handleFilter">
                                 <a-select-option v-for="m in props.months" :key="m.id" :value="m.id">
                                     {{ m.name }}
                                 </a-select-option>
                             </a-select>
-
-                            <a-select v-model:value="selectedYear" placeholder="Semua Tahun" class="w-full sm:w-32"
+                        </a-col>
+                        <a-col :xs="24" :sm="12" :md="8" :lg="4">
+                            <a-select v-model:value="selectedYear" placeholder="Semua Tahun" class="w-full"
                                 @change="handleFilter">
                                 <a-select-option v-for="y in props.years" :key="y.id" :value="y.id">
                                     {{ y.name }}
                                 </a-select-option>
                             </a-select>
-
-                            <a-select v-model:value="selectedStatus" placeholder="Semua Status" class="w-full sm:w-47"
+                        </a-col>
+                        <a-col :xs="24" :sm="12" :md="8" :lg="5">
+                            <a-select v-model:value="selectedStatus" placeholder="Semua Status" class="w-full"
                                 @change="handleFilter" allow-clear>
                                 <a-select-option v-for="s in props.statuses" :key="s" :value="s">
                                     <a-tag :color="getStatusInfo(s).color">
                                         {{ getStatusInfo(s).label }}
                                     </a-tag> </a-select-option>
                             </a-select>
-
-                            <a-select v-model:value="selectedErrorType" placeholder="Semua Tipe Error"
-                                class="w-full sm:w-42" @change="handleFilter" allow-clear>
+                        </a-col>
+                        <a-col :xs="24" :sm="12" :md="8" :lg="5">
+                            <a-select v-model:value="selectedErrorType" placeholder="Semua Tipe Error" class="w-full"
+                                @change="handleFilter" allow-clear>
                                 <a-select-option v-for="e in props.errorTypes" :key="e.id" :value="e.id">
                                     {{ e.column_name }}
                                 </a-select-option>
                             </a-select>
-
+                        </a-col>
+                        <a-col :xs="24" :sm="12" :md="8" :lg="5">
                             <a-select max-tag-count="responsive" mode="multiple" v-model:value="selectedRegency"
-                                placeholder="Semua Kabupaten/Kota" allow-clear class="w-full sm:w-50"
-                                @change="handleFilter">
+                                placeholder="Semua Kabupaten/Kota" allow-clear class="w-full" @change="handleFilter"
+                                :filter-option="filterRegency">
                                 <a-select-option v-for="r in props.regencies" :key="r.id" :value="r.id">
                                     [{{ r.long_code }}] {{ toTitleCase(r.name) }}
                                 </a-select-option>
                             </a-select>
-                        </div>
-                    </div>
+                        </a-col>
+                    </a-row>
+
 
                 </CardHeader>
 
                 <CardContent class="p-0 sm:px-6 sm:pb-6">
-                    <a-table :columns="columns" :row-key="record => record.id" :data-source="dataSource?.list ?? []"
-                        :pagination="pagination" :loading="loading" @change="handleTableChange" size="small"
-                        :scroll="{ x: 1500 }">
-                        <template #bodyCell="{ column, text, record }">
-                            <!-- Area Column -->
-                            <template v-if="column.key === 'area'">
-                                <div>
-                                    <!-- Highlight regency -->
-                                    <div class="font-semibold">
-                                        [{{ record.input.regency?.long_code ?? '-' }}]
-                                        {{ toTitleCase(record.input.regency?.name ??
-                                            '-') }}
+
+                    <a-row :gutter="[8, 8]" class="px-4 sm:px-2 mb-3" v-if="roles.includes('adminprov')">
+                        <a-col span="24">
+                            <div class="flex gap-2 mt-2 sm:mt-0">
+                                <a-popconfirm :disabled="!selectedRowKeys.length" title="Approve semua?"
+                                    ok-text="Ya, approve semua" cancel-text="Batal"
+                                    @confirm="handleApprove(selectedRowKeys, 'approved')">
+                                    <a-button type="primary" :disabled="!selectedRowKeys.length">
+                                        Approve All
+                                    </a-button>
+                                </a-popconfirm>
+                                <a-popconfirm :disabled="!selectedRowKeys.length" title="Reject semua?"
+                                    ok-text="Ya, reject semua" ok-type="danger" cancel-text="Batal"
+                                    @confirm="handleApprove(selectedRowKeys, 'rejected')">
+                                    <a-button type="primary" danger :disabled="!selectedRowKeys.length">
+                                        Reject All
+                                    </a-button>
+                                </a-popconfirm>
+                            </div>
+                        </a-col>
+                    </a-row>
+                    <!-- Mobile Card View (visible only on mobile) -->
+                    <div class="sm:hidden">
+                        <ConfirmationsMobile :data="dataSource?.list ?? []" :loading="loading" :pagination="pagination"
+                            v-model:selectedRowKeys="selectedRowKeys" empty-message="Tidak ada data"
+                            @confirm="onConfirm" @approve="handleApprove"
+                            @page-change="({ current, pageSize }) => handleTableChange({ current, pageSize }, {}, {})" />
+                    </div>
+
+                    <!-- Desktop Table View (hidden on mobile, visible on sm and up) -->
+                    <div class="hidden overflow-hidden sm:block sm:rounded-lg sm:border sm:border-border">
+
+                        <a-table :row-selection="roles.includes('adminprov') ? rowSelection : null" :columns="columns"
+                            :row-key="record => record.id" :data-source="dataSource?.list ?? []"
+                            :pagination="pagination" :loading="loading" @change="handleTableChange" size="small"
+                            :scroll="{ x: 1500 }">
+                            <template #bodyCell="{ column, text, record }">
+                                <!-- Area Column -->
+                                <template v-if="column.key === 'area'">
+                                    <div>
+                                        <!-- Highlight regency -->
+                                        <div class="font-semibold">
+                                            [{{ record.input.regency?.long_code ?? '-' }}]
+                                            {{ toTitleCase(record.input.regency?.name ??
+                                                '-') }}
+                                        </div>
+                                        <!-- Secondary info: full codes -->
+                                        <div class="text-sm text-gray-500">
+                                            {{ record.input.kode_kab ?? '-' }}
+                                            {{ record.input.kode_kec ?? '-' }}
+                                            {{ record.input.kode_desa ?? '-' }}
+                                        </div>
                                     </div>
-                                    <!-- Secondary info: full codes -->
-                                    <div class="text-sm text-gray-500">
-                                        {{ record.input.kode_prov ?? '-' }}
-                                        {{ record.input.kode_kab ?? '-' }}
-                                        {{ record.input.kode_kec ?? '-' }}
-                                        {{ record.input.kode_desa ?? '-' }}
-                                    </div>
-                                </div>
-                            </template>
+                                </template>
 
-                            <!-- Nama Komersial Column -->
-                            <template v-else-if="column.key === 'nama'">
-                                {{ record.input.nama_komersial ?? '-' }}
-                            </template>
+                                <!-- Nama Komersial Column -->
+                                <template v-else-if="column.key === 'nama'">
+                                    {{ record.input.nama_komersial ?? '-' }}
+                                </template>
 
-                            <!-- Month Column -->
-                            <template v-else-if="column.key === 'month'">
-                                {{ record.input.month?.name ?? '-' }}
-                            </template>
+                                <!-- Period Column -->
+                                <template v-else-if="column.key === 'period'">
+                                    {{ record.input.month?.name ?? '-' }} {{ record.input.year?.name ?? '-' }}
 
-                            <!-- Year Column -->
-                            <template v-else-if="column.key === 'year'">
-                                {{ record.input.year?.name ?? '-' }}
-                            </template>
+                                </template>
 
-                            <!-- Sent / Approved Column -->
-                            <template v-else-if="column.key === 'confirmation'">
-                                <div>Sent: {{ record.sentBy?.name ?? '-' }}</div>
-                                <div>Approved: {{ record.approvedBy?.name ?? '-' }}</div>
-                            </template>
+                                <!-- Sent / Approved Column -->
+                                <template v-else-if="column.key === 'confirmation'">
+                                    <span>Confirmed: {{ record.sent_by?.name ?? '-' }}</span>
+                                    <br />
+                                    <span>Approved: {{ record.approved_by?.name ?? '-' }}</span>
+                                </template>
 
-                            <!-- Notes Column -->
-                            <template v-else-if="column.key === 'notes'">
-                                {{ record.notes ?? '-' }}
-                            </template>
+                                <!-- Notes Column -->
+                                <template v-else-if="column.key === 'notes'">
+                                    {{ record.notes ?? '-' }}
+                                </template>
 
-                            <!-- Error Type Column -->
-                            <template v-else-if="column.key === 'errorType'">
-                                <a-tag color="blue" v-if="record.error_type">
-                                    {{ record.error_type.column_name }}
-                                </a-tag>
-                                <a-tag color="default" v-else>-</a-tag>
-                            </template>
+                                <!-- Error Type Column -->
+                                <template v-else-if="column.key === 'errorType'">
+                                    <a-tag color="blue" v-if="record.error_type">
+                                        {{ record.error_type.column_name }}
+                                    </a-tag>
+                                    <a-tag color="default" v-else>-</a-tag>
+                                </template>
 
-                            <!-- Status Column -->
-                            <template v-else-if="column.key === 'status'">
-                                <a-tag v-if="record.status" :color="getStatusInfo(record.status).color">
-                                    {{ getStatusInfo(record.status).label }}
-                                </a-tag>
-                                <a-tag v-else color="default">-</a-tag>
-                            </template>
+                                <!-- Status Column -->
+                                <template v-else-if="column.key === 'status'">
+                                    <a-tag v-if="record.status" :color="getStatusInfo(record.status).color">
+                                        {{ getStatusInfo(record.status).label }}
+                                    </a-tag>
+                                    <a-tag v-else color="default">-</a-tag>
+                                </template>
 
-                            <!-- Action Column -->
-                            <template v-else-if="column.key === 'action'">
-                                <a-button type="primary" size="small" @click="onConfirm(record)">
-                                    Confirm
-                                </a-button>
+                                <!-- Action Column -->
+                                <template v-else-if="column.key === 'action'">
+
+                                    <!-- adminkab: show Confirm only if not yet approved -->
+                                    <template v-if="roles.includes('adminkab') && record.status !== 'approved'">
+                                        <a-button type="primary" size="small" @click="onConfirm(record)">
+                                            Confirm
+                                        </a-button>
+                                    </template>
+
+                                    <!-- adminprov: Approve / Reject with popconfirm -->
+                                    <template v-else-if="roles.includes('adminprov') &&
+                                        ['confirmed', 'approved', 'rejected'].includes(record.status)">
+                                        <a-space>
+                                            <a-popconfirm :title="`Approve?`" ok-text="Ya, approve" cancel-text="Batal"
+                                                @confirm="handleApprove([record.id], 'approved')">
+                                                <a-button type="primary" size="small" ghost>
+                                                    Approve
+                                                </a-button>
+                                            </a-popconfirm>
+
+                                            <a-popconfirm :title="`Reject?`" ok-text="Ya, reject" cancel-text="Batal"
+                                                ok-type="danger" @confirm="handleApprove([record.id], 'rejected')">
+                                                <a-button type="primary" size="small" danger ghost>
+                                                    Reject
+                                                </a-button>
+                                            </a-popconfirm>
+                                        </a-space>
+                                    </template>
+                                </template>
                             </template>
-                        </template>
-                    </a-table>
+                        </a-table>
+                    </div>
                 </CardContent>
             </Card>
         </div>
+
+        <a-modal v-model:open="isFormDialogOpen" :footer="null" title="Konfirmasi" :width="480">
+            <div class="flex flex-col gap-4 pt-1 pb-1">
+
+                <!-- Record info -->
+                <div class="rounded-lg overflow-hidden border border-gray-100 divide-y divide-gray-100 bg-gray-50">
+
+                    <div class="flex items-center gap-3 px-4 py-2.5">
+                        <HomeOutlined class="text-gray-400 text-xs" />
+                        <span class="text-xs text-gray-400 w-28 shrink-0">Nama komersial</span>
+                        <span class="text-sm font-medium text-gray-800">{{ form.record?.input?.nama_komersial ?? '-'
+                        }}</span>
+                    </div>
+
+                    <div class="flex items-center gap-3 px-4 py-2.5">
+                        <EnvironmentOutlined class="text-gray-400 text-xs" />
+                        <span class="text-xs text-gray-400 w-28 shrink-0">Kab/Kota</span>
+                        <span class="text-sm font-medium text-gray-800">[{{ form.record?.input?.regency?.long_code ??
+                            '-' }}] {{
+                                form.record?.input?.regency?.name ?? '-' }}</span>
+                    </div>
+
+                    <div class="flex items-center gap-3 px-4 py-2.5">
+                        <TableOutlined class="text-gray-400 text-xs" />
+                        <span class="text-xs text-gray-400 w-28 shrink-0">Kode wilayah</span>
+                        <span class="text-sm font-medium text-gray-800 font-mono">
+                            {{ [form.record?.input?.kode_kab, form.record?.input?.kode_kec,
+                            form.record?.input?.kode_des].filter(Boolean).join('')
+                                || '-' }}
+                        </span>
+                    </div>
+
+                    <div class="flex items-center gap-3 px-4 py-2.5">
+                        <InfoCircleOutlined class="text-red-400 text-xs" />
+                        <span class="text-xs text-gray-400 w-28 shrink-0">Jenis kesalahan</span>
+                        <span class="text-xs font-medium text-red-500 bg-red-50 px-2 py-0.5 rounded">
+                            {{ form.record?.error_type?.column_name ?? '-' }}
+                        </span>
+                    </div>
+
+                </div>
+
+                <!-- Form -->
+                <a-form :key="formKey" layout="vertical" :model="form" :rules="rules" ref="formRef">
+                    <a-form-item name="notes" label="Catatan" :validate-status="form.errors.notes ? 'error' : undefined"
+                        :help="form.errors.notes" class="mb-0">
+                        <a-textarea v-model:value="form.notes" placeholder="Tuliskan catatan di sini..."
+                            :auto-size="{ minRows: 3, maxRows: 7 }" />
+                    </a-form-item>
+                </a-form>
+
+                <!-- Actions -->
+                <div class="flex justify-end gap-2">
+                    <a-button @click="isFormDialogOpen = false">Batal</a-button>
+                    <a-button type="primary" :loading="form.processing" @click="submit">Simpan</a-button>
+                </div>
+
+            </div>
+        </a-modal>
     </AppLayout>
 </template>

@@ -22,7 +22,7 @@ return new class extends Migration
             $table->uuid('id')->primary();
             $table->foreignUuid('input_id')->constrained('inputs');
             $table->foreignId('error_type_id')->constrained('error_types');
-            $table->enum('status', ['not_confirmed', 'confirmed', 'approved', 'pending', 'other'])->default('not_confirmed');
+            $table->enum('status', ['not_confirmed', 'confirmed', 'approved', 'rejected', 'pending', 'other'])->default('not_confirmed');
             $table->text('notes')->nullable();
             $table->boolean('is_active')->default(false);
             $table->foreignUuid('sent_by_id')->nullable()->constrained('users');

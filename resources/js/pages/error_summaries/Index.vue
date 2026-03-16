@@ -168,7 +168,14 @@ onMounted(() => {
     fetchData();
 });
 
-const filterRegency = () => {
+const filterRegency = (input, option) => {
+    const regency = props.regencies.find(r => r.id === option.value)
+    if (!regency) return false
+    const label = `[${regency.long_code}] ${toTitleCase(regency.name)}`.toLowerCase()
+    return label.includes(input.toLowerCase())
+}
+
+const filterRegencyFromData = () => {
     if (!selectedRegency.value.length) {
         filteredRows.value = rows.value;
         return;
@@ -213,22 +220,22 @@ function toTitleCase(str) {
                     <div
                         class="mt-3 flex flex-col gap-2 sm:mt-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
                         <div class="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
-                            <a-select v-model:value="selectedMonth" placeholder="Semua Bulan"
-                                class="w-full sm:w-40" @change="fetchData">
+                            <a-select v-model:value="selectedMonth" placeholder="Semua Bulan" class="w-full sm:w-40"
+                                @change="fetchData">
                                 <a-select-option v-for="m in props.months" :key="m.id" :value="m.id">
                                     {{ m.name }}
                                 </a-select-option>
                             </a-select>
 
-                            <a-select v-model:value="selectedYear" placeholder="Semua Tahun"
-                                class="w-full sm:w-32" @change="fetchData">
+                            <a-select v-model:value="selectedYear" placeholder="Semua Tahun" class="w-full sm:w-32"
+                                @change="fetchData">
                                 <a-select-option v-for="y in props.years" :key="y.id" :value="y.id">
                                     {{ y.name }}
                                 </a-select-option>
                             </a-select>
                             <a-select max-tag-count="responsive" mode="multiple" v-model:value="selectedRegency"
                                 placeholder="Semua Kabupaten/Kota" allow-clear class="w-full sm:w-40"
-                                @change="filterRegency()">
+                                @change="filterRegencyFromData()" :filter-option="filterRegency">
                                 <a-select-option v-for="r in props.regencies" :key="r.id" :value="r.id">
                                     [{{ r.long_code }}] {{ toTitleCase(r.name) }}
                                 </a-select-option>
