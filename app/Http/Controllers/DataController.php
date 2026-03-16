@@ -11,7 +11,9 @@ use App\Models\Input;
 use App\Models\Month;
 use App\Models\Regency;
 use App\Models\SyncStatus;
+use App\Models\User;
 use DateTime;
+use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
 use Symfony\Component\HttpFoundation\JsonResponse;
 
@@ -19,7 +21,15 @@ class DataController extends Controller
 {
     public function showRawDataPage()
     {
-        $regencies = Regency::all();
+        $user = User::find(Auth::id());
+
+        $regencies = [];
+        if ($user->hasRole('adminkab')) {
+            $regencies = Regency::where('id', $user->regency_id)->get();
+        } else {
+            $regencies = Regency::all();
+        }
+
         $months = Month::all();
         $years = Year::all();
         return Inertia::render('data/Index', [
@@ -30,9 +40,13 @@ class DataController extends Controller
     }
     public function getInputData(Request $request)
     {
-        $records = null;
+        $user = User::find(Auth::id());
 
         $records = Input::with(['month', 'year', 'user', 'regency', 'syncStatus']);
+
+        if ($user->hasRole('adminkab')) {
+            $records->where('kode_kab', $user->regency_id);
+        }
 
         if ($request->input('month')) {
             $records->where('bulan', $request->input('month'));
@@ -72,6 +86,14 @@ class DataController extends Controller
         if ($request->input('status')) {
             $search = is_array($request->input('status')) ? $request->input('status')[0] : $request->input('status');
             $records->where('status', 'like', '%' . $search . '%');
+        }
+
+        if ($request->input('error_filter')) {
+            if ($request->input('error_filter') == 'has_error') {
+                $records->where('jumlah_error', '>', 0);
+            } else if ($request->input('error_filter') == 'no_error') {
+                $records->where('jumlah_error', 0);
+            }
         }
 
         $orderColumn = 'created_at';
