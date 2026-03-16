@@ -82,58 +82,205 @@ const COLOR_RANGE = [
     { min: 100, max: Infinity, class: 'bg-emerald-100 text-emerald-700' },
 ];
 
+const getValue = (record, parentKey, catId) => {
+    if (parentKey === 'percentage') {
+        const realization = record.realization?.[catId] ?? 0;
+        const target = record.target?.[catId] ?? 0;
+        return target > 0 ? (realization / target) * 100 : null;
+    }
+
+    return record[parentKey]?.[catId] ?? 0;
+};
+
+const getTotalValue = (record, parentKey) => {
+    if (parentKey === 'percentage') {
+        const totalRealization = props.categories.reduce(
+            (sum, cat) => sum + (record.realization?.[cat.id] ?? 0),
+            0
+        );
+
+        const totalTarget = props.categories.reduce(
+            (sum, cat) => sum + (record.target?.[cat.id] ?? 0),
+            0
+        );
+
+        return totalTarget > 0 ? (totalRealization / totalTarget) * 100 : null;
+    }
+
+    return props.categories.reduce(
+        (sum, cat) => sum + (record[parentKey]?.[cat.id] ?? 0),
+        0
+    );
+};
+
 const enumerationColumns = computed(() =>
     parentColumn.map((parent, index) => {
         const bg = BACKGROUND_COLORS[index % BACKGROUND_COLORS.length] ?? '#f5f5f5';
         const cell = () => ({ style: { background: bg } });
+
+        const categoryColumns = props.categories.map((cat) => ({
+            key: `${parent.key}_${cat.id}`,
+            title: cat.name,
+            align: 'center',
+            customHeaderCell: cell,
+            customCell: cell,
+            sorter: (a, b) =>
+                (getValue(a, parent.key, cat.id) ?? 0) -
+                (getValue(b, parent.key, cat.id) ?? 0),
+            customRender: ({ record }) => {
+                if (parent.key === 'percentage') {
+                    const realization = record.realization?.[cat.id] ?? 0;
+                    const target = record.target?.[cat.id] ?? 0;
+                    const percentage = target > 0 ? (realization / target) * 100 : null;
+
+                    if (percentage === null) {
+                        return h('span', '-');
+                    }
+
+                    const range = COLOR_RANGE.find(
+                        r => percentage >= r.min && percentage < r.max
+                    );
+
+                    return h(
+                        'span',
+                        { class: `${range?.class ?? ''} px-1 rounded` },
+                        `${percentage.toFixed(2)}%`
+                    );
+                }
+
+                return h('span', record[parent.key]?.[cat.id] ?? '-');
+            },
+        }));
+
+        const totalColumn = {
+            key: `${parent.key}_total`,
+            title: 'Total',
+            align: 'center',
+            customHeaderCell: cell,
+            customCell: cell,
+            sorter: (a, b) =>
+                (getTotalValue(a, parent.key) ?? 0) -
+                (getTotalValue(b, parent.key) ?? 0),
+            customRender: ({ record }) => {
+                if (parent.key === 'percentage') {
+                    const totalRealization = props.categories.reduce(
+                        (sum, cat) => sum + (record.realization?.[cat.id] ?? 0),
+                        0
+                    );
+
+                    const totalTarget = props.categories.reduce(
+                        (sum, cat) => sum + (record.target?.[cat.id] ?? 0),
+                        0
+                    );
+
+                    const percentage = totalTarget > 0
+                        ? (totalRealization / totalTarget) * 100
+                        : null;
+
+                    if (percentage === null) {
+                        return h('span', '-');
+                    }
+
+                    const range = COLOR_RANGE.find(
+                        r => percentage >= r.min && percentage < r.max
+                    );
+
+                    return h(
+                        'span',
+                        { class: `${range?.class ?? ''} px-1 rounded font-semibold` },
+                        `${percentage.toFixed(2)}%`
+                    );
+                }
+
+                const total = props.categories.reduce(
+                    (sum, cat) => sum + (record[parent.key]?.[cat.id] ?? 0),
+                    0
+                );
+
+                return h('span', { class: 'font-semibold' }, total);
+            }
+        };
+
         return {
             ...parent,
             customHeaderCell: cell,
-            children: props.categories.map((cat) => ({
-                key: `${parent.key}_${cat.id}`,
-                title: cat.name,
-                align: 'center',
-                customHeaderCell: cell,
-                customCell: cell,
-                sorter: true,
-                customRender: ({ record }) => {
-                    if (parent.key === 'percentage') {
-                        const realization = record.realization?.[cat.id] ?? 0;
-                        const target = record.target?.[cat.id] ?? 0;
-                        const percentage = target > 0 ? (realization / target) * 100 : null;
-                        if (percentage === null) {
-                            return h('span', '-');
-                        }
-                        const range = COLOR_RANGE.find(
-                            r => percentage >= r.min && percentage < r.max
-                        );
-                        return h(
-                            'span',
-                            { class: `${range?.class ?? ''} px-1 rounded` },
-                            `${percentage.toFixed(2)}%`
-                        );
-                    }
-                    return h('span', record[parent.key]?.[cat.id] ?? '-');
-                },
-            }))
+            children: [
+                ...categoryColumns,
+                totalColumn
+            ]
         };
     })
 );
 
+const graphColumn = {
+    title: 'Graph',
+    key: 'graph',
+    width: 180,
+    align: 'left',
+
+    sorter: (a, b) =>
+        (getTotalValue(a, 'percentage') ?? 0) -
+        (getTotalValue(b, 'percentage') ?? 0),
+
+    customRender: ({ record }) => {
+        const percent = getTotalValue(record, 'percentage');
+
+        if (percent === null) {
+            return h('span', '-');
+        }
+
+        const range = COLOR_RANGE.find(
+            r => percent >= r.min && percent < r.max
+        );
+
+        const colorMap = {
+            'bg-red-100 text-red-700': 'bg-red-500',
+            'bg-yellow-100 text-yellow-700': 'bg-yellow-500',
+            'bg-green-100 text-green-700': 'bg-green-500',
+            'bg-emerald-100 text-emerald-700': 'bg-emerald-500'
+        };
+
+        const barColor = colorMap[range?.class] ?? 'bg-blue-500';
+
+        const width = Math.min(percent, 150);
+
+        return h('div', { class: 'flex items-center gap-2 w-full' }, [
+
+            // BAR
+            h('div', { class: 'flex-1 bg-gray-200 rounded h-4 overflow-hidden' }, [
+                h('div', {
+                    class: `${barColor} h-4`,
+                    style: { width: `${width}%` }
+                })
+            ]),
+
+            // FIXED WIDTH LABEL
+            h(
+                'span',
+                { class: 'w-[55px] text-right text-xs tabular-nums' },
+                `${percent.toFixed(2)}%`
+            )
+        ]);
+    }
+};
+
+const regencyColumn = {
+    title: 'Kab/Kota',
+    key: 'regency',
+    sorter: (a, b) => (a.regency?.long_code ?? '').localeCompare(b.regency?.long_code ?? ''),
+    fixed: 'left',
+    width: isSmallScreen.value ? 40 : 200,
+    ellipsis: true,
+    customRender: ({ record }) =>
+        isSmallScreen.value
+            ? h('span', record.regency?.long_code ?? '')
+            : h('span', `[${record.regency?.long_code}] ${record.regency?.name}`),
+};
+
 const columns = computed(() => [
-    {
-        title: 'Kab/Kota',
-        key: 'regency',
-        sorter: (a, b) => (a.regency?.long_code ?? '').localeCompare(b.regency?.long_code ?? ''),
-        fixed: 'left',
-        width: isSmallScreen.value ? 40 : 200,
-        ellipsis: true,
-        customRender: ({ record }) =>
-            isSmallScreen.value
-                ? h('span', record.regency?.long_code ?? '')
-                : h('span', `[${record.regency?.long_code}] ${record.regency?.name}`),
-    },
+    regencyColumn,
     ...enumerationColumns.value,
+    graphColumn
 ]);
 
 const mobileCardConfig = computed(() => ({
@@ -141,7 +288,7 @@ const mobileCardConfig = computed(() => ({
         title: record.regency?.name ?? '',
         subtitle: record.regency?.long_code ?? '',
     }),
-    columns: ['B', 'NB'],
+    columns: ['B', 'NB', 'Total'], // B, NB, and Total column
     sections: (record) => {
         const sections = [];
 
@@ -155,6 +302,30 @@ const mobileCardConfig = computed(() => ({
                 }
                 return { value: record[col.key]?.[cat.id] ?? '-' };
             });
+
+            // Compute total for this parent column
+            let totalValue;
+            if (col.key === 'percentage') {
+                const totalRealization = props.categories.reduce(
+                    (sum, cat) => sum + (record.realization?.[cat.id] ?? 0),
+                    0
+                );
+                const totalTarget = props.categories.reduce(
+                    (sum, cat) => sum + (record.target?.[cat.id] ?? 0),
+                    0
+                );
+                totalValue = totalTarget > 0
+                    ? `${((totalRealization / totalTarget) * 100).toFixed(2)}%`
+                    : '-';
+            } else {
+                totalValue = props.categories.reduce(
+                    (sum, cat) => sum + (record[col.key]?.[cat.id] ?? 0),
+                    0
+                );
+            }
+
+            // Append total value to the items array
+            items.push({ value: totalValue });
 
             sections.push({
                 title: col.title,
@@ -255,7 +426,8 @@ function toTitleCase(str) {
                     <!-- Mobile Card View (visible only on mobile) -->
                     <div class="sm:hidden">
                         <EnumerationsMobile :data="filteredRows" :loading="loading" :card-config="mobileCardConfig"
-                            empty-message="Tidak ada data" :colorRange="COLOR_RANGE" />
+                            empty-message="Tidak ada data" :colorRange="COLOR_RANGE"
+                            :tableColumns="[regencyColumn, graphColumn]"/>
                     </div>
 
                     <!-- Desktop Table View (hidden on mobile, visible on sm and up) -->

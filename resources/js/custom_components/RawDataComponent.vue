@@ -307,6 +307,7 @@ const handleResetAll = () => {
     tableKey.value++;
     selectedMonth.value = null;
     selectedYear.value = null;
+    errorFilter.value = null;
     run();
 };
 
@@ -333,17 +334,17 @@ const handleReset = clearFilters => {
                 {{ year.name }}
             </a-select-option>
         </a-select>
+        <a-radio-group v-model:value="errorFilter" button-style="solid" @change="handleFilter">
+            <a-radio-button :value="null">Semua</a-radio-button>
+            <a-radio-button value="has_error">Ada Error</a-radio-button>
+            <a-radio-button value="no_error">Tanpa Error</a-radio-button>
+        </a-radio-group>
         <a-select max-tag-count="responsive" mode="multiple" v-model:value="selectedView" placeholder="Pilih View Kolom"
             class="w-44">
             <a-select-option v-for="view in viewColumns" :key="view.value" :value="view.value">
                 {{ view.label }}
             </a-select-option>
         </a-select>
-        <a-radio-group v-model:value="errorFilter" button-style="solid" @change="handleFilter">
-            <a-radio-button :value="null">Semua</a-radio-button>
-            <a-radio-button value="has_error">Ada Error</a-radio-button>
-            <a-radio-button value="no_error">Tanpa Error</a-radio-button>
-        </a-radio-group>
         <a-tooltip title="Reset Semua Filter">
             <a-button @click="handleResetAll">
                 <template #icon>
