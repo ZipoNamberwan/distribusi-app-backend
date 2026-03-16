@@ -29,6 +29,7 @@ return new class extends Migration
             $table->string('short_code');
             $table->string('long_code');
             $table->string('name');
+            $table->enum('level', ['province', 'regency']);
             $table->foreignId(column: 'parent_id')->nullable()->constrained('regencies');
         });
     }
@@ -40,5 +41,6 @@ return new class extends Migration
     {
         Schema::dropIfExists('months');
         Schema::dropIfExists('years');
+        Schema::dropIfExists('regencies');
     }
 };

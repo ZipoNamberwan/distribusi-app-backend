@@ -766,29 +766,35 @@ class InputJob implements ShouldQueue
                 ->where('month_id', $monthId)
                 ->delete();
 
-            $bintangCatId = (int) $categories->get('1');
+            $bintangCatId    = (int) $categories->get('1');
             $nonBintangCatId = (int) $categories->get('2');
-            $tpkId = (int) $indicators->get('TPK');
-            $rlmtaId = (int) $indicators->get('RLMTA');
-            $rlmtnId = (int) $indicators->get('RLMTN');
-            $gprId = (int) $indicators->get('GPR');
-            $tpttId = (int) $indicators->get('TPTT');
+            $tpkId           = (int) $indicators->get('TPK');
+            $rlmtaId         = (int) $indicators->get('RLMTA');
+            $rlmtnId         = (int) $indicators->get('RLMTN');
+            $gprId           = (int) $indicators->get('GPR');
+            $tpttId          = (int) $indicators->get('TPTT');
 
-            // FIX 6: Build a flat map keyed by "regencyId_jenis" directly from the
-            // aggregates collection — eliminates the intermediate $byRegencyAndJenis
-            // nested array and the separate array_keys() loop over it.
+            // Resolve the province id from the map — it's the one short_code whose
+            // corresponding regency has level='province'. Fetch it directly.
+            $province = Regency::query()
+                ->where('level', 'province')
+                ->select('id', 'short_code')
+                ->firstOrFail();
+
+            $provinceId = (int) $province->id;
+
             /** @var array<string, mixed> $aggMap */
             $aggMap = $aggregates->keyBy(fn($agg) => $agg->kode_kab . '_' . $agg->jenis_akomodasi)->all();
 
-            // Collect unique regency IDs without building an extra collection.
             $regencyIds = $aggregates->pluck('kode_kab')->unique()->all();
 
             $records = [];
             $now = now()->toDateTimeString();
 
             foreach ($regencyIds as $regencyId) {
-                $agg1 = $aggMap[$regencyId . '_1'] ?? null; // Bintang
-                $agg2 = $aggMap[$regencyId . '_2'] ?? null; // Non Bintang
+
+                $agg1 = $aggMap[$regencyId . '_1'] ?? null;
+                $agg2 = $aggMap[$regencyId . '_2'] ?? null;
 
                 // TPK
                 $records[] = $this->makeIndicatorRecord(
@@ -901,6 +907,161 @@ class InputJob implements ShouldQueue
                 );
             }
 
+            // --- Province aggregation ---
+            $provinceSums = [
+                1 => [
+                    'sum_mktj' => 0,
+                    'sum_mkts' => 0,
+                    'sum_mta' => 0,
+                    'sum_ta' => 0,
+                    'sum_mtnus' => 0,
+                    'sum_tnus' => 0,
+                    'sum_mtgab' => 0,
+                    'sum_bed' => 0,
+                    'has_data' => false
+                ],
+                2 => [
+                    'sum_mktj' => 0,
+                    'sum_mkts' => 0,
+                    'sum_mta' => 0,
+                    'sum_ta' => 0,
+                    'sum_mtnus' => 0,
+                    'sum_tnus' => 0,
+                    'sum_mtgab' => 0,
+                    'sum_bed' => 0,
+                    'has_data' => false
+                ],
+            ];
+
+            foreach ($aggregates as $agg) {
+                $jenis = (int) $agg->jenis_akomodasi;
+                if (!isset($provinceSums[$jenis])) {
+                    continue;
+                }
+                $provinceSums[$jenis]['has_data']  = true;
+                $provinceSums[$jenis]['sum_mktj']  += (int) $agg->sum_mktj;
+                $provinceSums[$jenis]['sum_mkts']  += (int) $agg->sum_mkts;
+                $provinceSums[$jenis]['sum_mta']   += (int) $agg->sum_mta;
+                $provinceSums[$jenis]['sum_ta']    += (int) $agg->sum_ta;
+                $provinceSums[$jenis]['sum_mtnus'] += (int) $agg->sum_mtnus;
+                $provinceSums[$jenis]['sum_tnus']  += (int) $agg->sum_tnus;
+                $provinceSums[$jenis]['sum_mtgab'] += (int) $agg->sum_mtgab;
+                $provinceSums[$jenis]['sum_bed']   += (int) $agg->sum_bed;
+            }
+
+            $prov1 = $provinceSums[1]['has_data'] ? $provinceSums[1] : null;
+            $prov2 = $provinceSums[2]['has_data'] ? $provinceSums[2] : null;
+
+            // TPK
+            $records[] = $this->makeIndicatorRecord(
+                $provinceId,
+                $yearId,
+                $monthId,
+                $tpkId,
+                $bintangCatId,
+                $prov1 ? $prov1['sum_mktj'] : null,
+                $prov1 ? $prov1['sum_mkts'] : null,
+                $now
+            );
+            $records[] = $this->makeIndicatorRecord(
+                $provinceId,
+                $yearId,
+                $monthId,
+                $tpkId,
+                $nonBintangCatId,
+                $prov2 ? $prov2['sum_mktj'] : null,
+                $prov2 ? $prov2['sum_mkts'] : null,
+                $now
+            );
+
+            // RLMTA
+            $records[] = $this->makeIndicatorRecord(
+                $provinceId,
+                $yearId,
+                $monthId,
+                $rlmtaId,
+                $bintangCatId,
+                $prov1 ? $prov1['sum_mta'] : null,
+                $prov1 ? $prov1['sum_ta'] : null,
+                $now
+            );
+            $records[] = $this->makeIndicatorRecord(
+                $provinceId,
+                $yearId,
+                $monthId,
+                $rlmtaId,
+                $nonBintangCatId,
+                $prov2 ? $prov2['sum_mta'] : null,
+                $prov2 ? $prov2['sum_ta'] : null,
+                $now
+            );
+
+            // RLMTN
+            $records[] = $this->makeIndicatorRecord(
+                $provinceId,
+                $yearId,
+                $monthId,
+                $rlmtnId,
+                $bintangCatId,
+                $prov1 ? $prov1['sum_mtnus'] : null,
+                $prov1 ? $prov1['sum_tnus'] : null,
+                $now
+            );
+            $records[] = $this->makeIndicatorRecord(
+                $provinceId,
+                $yearId,
+                $monthId,
+                $rlmtnId,
+                $nonBintangCatId,
+                $prov2 ? $prov2['sum_mtnus'] : null,
+                $prov2 ? $prov2['sum_tnus'] : null,
+                $now
+            );
+
+            // GPR
+            $records[] = $this->makeIndicatorRecord(
+                $provinceId,
+                $yearId,
+                $monthId,
+                $gprId,
+                $bintangCatId,
+                $prov1 ? $prov1['sum_mtgab'] : null,
+                $prov1 ? $prov1['sum_mktj'] : null,
+                $now
+            );
+            $records[] = $this->makeIndicatorRecord(
+                $provinceId,
+                $yearId,
+                $monthId,
+                $gprId,
+                $nonBintangCatId,
+                $prov2 ? $prov2['sum_mtgab'] : null,
+                $prov2 ? $prov2['sum_mktj'] : null,
+                $now
+            );
+
+            // TPTT
+            $records[] = $this->makeIndicatorRecord(
+                $provinceId,
+                $yearId,
+                $monthId,
+                $tpttId,
+                $bintangCatId,
+                $prov1 ? $prov1['sum_mtgab'] : null,
+                $prov1 ? $prov1['sum_bed'] : null,
+                $now
+            );
+            $records[] = $this->makeIndicatorRecord(
+                $provinceId,
+                $yearId,
+                $monthId,
+                $tpttId,
+                $nonBintangCatId,
+                $prov2 ? $prov2['sum_mtgab'] : null,
+                $prov2 ? $prov2['sum_bed'] : null,
+                $now
+            );
+
             foreach (array_chunk($records, 500) as $chunk) {
                 IndicatorValue::insert($chunk);
             }
@@ -978,6 +1139,13 @@ class InputJob implements ShouldQueue
                 ->get()
                 ->keyBy(fn($row) => $row->regency_id . '_' . $row->jenis_akomodasi);
 
+            $province = Regency::query()
+                ->where('level', 'province')
+                ->select('id')
+                ->firstOrFail();
+
+            $provinceId = (int) $province->id;
+
             ErrorSummary::query()
                 ->where('month_id', $monthId)
                 ->where('year_id', $yearId)
@@ -986,34 +1154,73 @@ class InputJob implements ShouldQueue
             $now = now()->toDateTimeString();
             $records = [];
 
+            // Province sums keyed by jenis
+            $provinceSums = [
+                1 => ['hotel_error_count' => 0, 'indikator_error_sum' => 0],
+                2 => ['hotel_error_count' => 0, 'indikator_error_sum' => 0],
+            ];
+
             foreach ($regencyIds as $regencyId) {
                 foreach ([1 => $bintangCatId, 2 => $nonBintangCatId] as $jenis => $categoryId) {
                     $row = $aggregates->get($regencyId . '_' . $jenis);
 
+                    $hotelCount    = (int) ($row->hotel_error_count ?? 0);
+                    $indikatorSum  = (int) ($row->indikator_error_sum ?? 0);
+
+                    $provinceSums[$jenis]['hotel_error_count']   += $hotelCount;
+                    $provinceSums[$jenis]['indikator_error_sum'] += $indikatorSum;
+
                     $records[] = [
-                        'id' => (string) Str::uuid(),
-                        'regency_id' => (int) $regencyId,
-                        'month_id' => $monthId,
-                        'year_id' => $yearId,
-                        'error_id' => $hotelErrorId,
+                        'id'          => (string) Str::uuid(),
+                        'regency_id'  => (int) $regencyId,
+                        'month_id'    => $monthId,
+                        'year_id'     => $yearId,
+                        'error_id'    => $hotelErrorId,
                         'category_id' => $categoryId,
-                        'value' => (int) ($row->hotel_error_count ?? 0),
-                        'created_at' => $now,
-                        'updated_at' => $now,
+                        'value'       => $hotelCount,
+                        'created_at'  => $now,
+                        'updated_at'  => $now,
                     ];
 
                     $records[] = [
-                        'id' => (string) Str::uuid(),
-                        'regency_id' => (int) $regencyId,
-                        'month_id' => $monthId,
-                        'year_id' => $yearId,
-                        'error_id' => $indikatorErrorId,
+                        'id'          => (string) Str::uuid(),
+                        'regency_id'  => (int) $regencyId,
+                        'month_id'    => $monthId,
+                        'year_id'     => $yearId,
+                        'error_id'    => $indikatorErrorId,
                         'category_id' => $categoryId,
-                        'value' => (int) ($row->indikator_error_sum ?? 0),
-                        'created_at' => $now,
-                        'updated_at' => $now,
+                        'value'       => $indikatorSum,
+                        'created_at'  => $now,
+                        'updated_at'  => $now,
                     ];
                 }
+            }
+
+            // Province records — summed from all children
+            foreach ([1 => $bintangCatId, 2 => $nonBintangCatId] as $jenis => $categoryId) {
+                $records[] = [
+                    'id'          => (string) Str::uuid(),
+                    'regency_id'  => $provinceId,
+                    'month_id'    => $monthId,
+                    'year_id'     => $yearId,
+                    'error_id'    => $hotelErrorId,
+                    'category_id' => $categoryId,
+                    'value'       => $provinceSums[$jenis]['hotel_error_count'],
+                    'created_at'  => $now,
+                    'updated_at'  => $now,
+                ];
+
+                $records[] = [
+                    'id'          => (string) Str::uuid(),
+                    'regency_id'  => $provinceId,
+                    'month_id'    => $monthId,
+                    'year_id'     => $yearId,
+                    'error_id'    => $indikatorErrorId,
+                    'category_id' => $categoryId,
+                    'value'       => $provinceSums[$jenis]['indikator_error_sum'],
+                    'created_at'  => $now,
+                    'updated_at'  => $now,
+                ];
             }
 
             foreach (array_chunk($records, 500) as $chunk) {
@@ -1175,6 +1382,13 @@ class InputJob implements ShouldQueue
                 ->get()
                 ->keyBy(fn($row) => $row->regency_id . '_' . $row->jenis_akomodasi);
 
+            $province = Regency::query()
+                ->where('level', 'province')
+                ->select('id')
+                ->firstOrFail();
+
+            $provinceId = (int) $province->id;
+
             Enumeration::query()
                 ->where('month_id', $monthId)
                 ->where('year_id', $yearId)
@@ -1183,21 +1397,43 @@ class InputJob implements ShouldQueue
             $now = now()->toDateTimeString();
             $records = [];
 
+            $provinceSums = [
+                1 => 0,
+                2 => 0,
+            ];
+
             foreach ($regencyIds as $regencyId) {
                 foreach ([1 => $bintangCatId, 2 => $nonBintangCatId] as $jenis => $categoryId) {
                     $row = $aggregates->get($regencyId . '_' . $jenis);
+                    $count = (int) ($row->count ?? 0);
+
+                    $provinceSums[$jenis] += $count;
 
                     $records[] = [
-                        'id' => (string) Str::uuid(),
-                        'regency_id' => (int) $regencyId,
-                        'month_id' => $monthId,
-                        'year_id' => $yearId,
+                        'id'          => (string) Str::uuid(),
+                        'regency_id'  => (int) $regencyId,
+                        'month_id'    => $monthId,
+                        'year_id'     => $yearId,
                         'category_id' => $categoryId,
-                        'value' => (int) ($row->count ?? 0),
-                        'created_at' => $now,
-                        'updated_at' => $now,
+                        'value'       => $count,
+                        'created_at'  => $now,
+                        'updated_at'  => $now,
                     ];
                 }
+            }
+
+            // Province records — summed from all children
+            foreach ([1 => $bintangCatId, 2 => $nonBintangCatId] as $jenis => $categoryId) {
+                $records[] = [
+                    'id'          => (string) Str::uuid(),
+                    'regency_id'  => $provinceId,
+                    'month_id'    => $monthId,
+                    'year_id'     => $yearId,
+                    'category_id' => $categoryId,
+                    'value'       => $provinceSums[$jenis],
+                    'created_at'  => $now,
+                    'updated_at'  => $now,
+                ];
             }
 
             foreach (array_chunk($records, 500) as $chunk) {

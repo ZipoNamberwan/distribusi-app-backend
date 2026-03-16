@@ -87,7 +87,6 @@ class SampleTargetJob implements ShouldQueue
 
         $absolutePath = Storage::disk('local')->path($relativePath);
 
-        // Single shared reader instance reused across all chunk reads.
         $reader = new Xlsx;
         $reader->setReadDataOnly(true);
 
@@ -104,7 +103,6 @@ class SampleTargetJob implements ShouldQueue
             throw new ImportException('XLSX appears to be empty', 'The uploaded file is empty');
         }
 
-        // Read and validate headers (row 1).
         $headersRow = $this->readXlsxRows($reader, $absolutePath, 1, 1);
         $rawHeaders = $headersRow[0] ?? [];
         if (! is_array($rawHeaders) || $rawHeaders === []) {
@@ -116,7 +114,6 @@ class SampleTargetJob implements ShouldQueue
             $rawHeaders
         );
 
-        // Required columns that must exist in the file.
         $required = ['kode_kab', 'bintang', 'non_bintang'];
         $headerIndex = array_flip(array_filter($headers, fn($h) => $h !== ''));
 
@@ -133,34 +130,41 @@ class SampleTargetJob implements ShouldQueue
         $colBintang    = $headerIndex['bintang'];
         $colNonBintang = $headerIndex['non_bintang'];
 
-        // year_id and month_id come from the sync status, not from the file.
         $yearId  = (int) $syncStatus->year_id;
         $monthId = $syncStatus->month_id !== null ? (int) $syncStatus->month_id : null;
-
-        // When month_id is null the records are marked as the default targets.
         $isDefault = $monthId === null;
 
-        // Build FK lookup maps.
         $maps = $this->buildForeignKeyMaps();
 
         $bintangCatId    = (int) $maps['categories']['Bintang'];
         $nonBintangCatId = (int) $maps['categories']['Non Bintang'];
 
-        // Validate all kode_kab values in a single pre-pass before touching the DB.
         $this->validateRegencies($reader, $absolutePath, $totalRows, $colKodeKab, $maps['regencies']);
 
-        // Delete existing targets for this period before re-importing.
+        $province = Regency::query()
+            ->where('level', 'province')
+            ->select('id')
+            ->firstOrFail();
+
+        $provinceId = (int) $province->id;
+
         SampleTarget::where('year_id', $yearId)
             ->where('month_id', $monthId)
             ->delete();
 
         $insertBatchSize = 500;
-        $buffer  = [];
+        $buffer   = [];
         $imported = 0;
-        $now     = now()->toDateTimeString();
+        $now      = now()->toDateTimeString();
+
+        // Accumulate province totals while processing regency rows
+        $provinceSums = [
+            'bintang'     => 0,
+            'non_bintang' => 0,
+        ];
 
         $chunkSize = 1000;
-        $start = 2; // row 1 is headers
+        $start = 2;
 
         while ($start <= $totalRows) {
             $end  = min($totalRows, $start + $chunkSize - 1);
@@ -171,13 +175,11 @@ class SampleTargetJob implements ShouldQueue
                     continue;
                 }
 
-                $rowNumber = $start + $offset;
-
+                $rowNumber  = $start + $offset;
                 $kodeKab    = trim($this->stringifyCellValue($row[$colKodeKab] ?? ''));
                 $bintang    = $row[$colBintang] ?? null;
                 $nonBintang = $row[$colNonBintang] ?? null;
 
-                // Skip entirely blank rows.
                 if ($kodeKab === '' && $bintang === null && $nonBintang === null) {
                     continue;
                 }
@@ -197,7 +199,12 @@ class SampleTargetJob implements ShouldQueue
                     );
                 }
 
-                // One record per category (Bintang and Non Bintang) per row.
+                $bintangValue    = $this->resolveIntValue($bintang);
+                $nonBintangValue = $this->resolveIntValue($nonBintang);
+
+                $provinceSums['bintang']     += $bintangValue ?? 0;
+                $provinceSums['non_bintang'] += $nonBintangValue ?? 0;
+
                 $buffer[] = [
                     'id'          => (string) Str::uuid(),
                     'month_id'    => $monthId,
@@ -205,7 +212,7 @@ class SampleTargetJob implements ShouldQueue
                     'category_id' => $bintangCatId,
                     'regency_id'  => $regencyId,
                     'is_default'  => $isDefault,
-                    'value'       => $this->resolveIntValue($bintang),
+                    'value'       => $bintangValue,
                     'created_at'  => $now,
                     'updated_at'  => $now,
                 ];
@@ -217,7 +224,7 @@ class SampleTargetJob implements ShouldQueue
                     'category_id' => $nonBintangCatId,
                     'regency_id'  => $regencyId,
                     'is_default'  => $isDefault,
-                    'value'       => $this->resolveIntValue($nonBintang),
+                    'value'       => $nonBintangValue,
                     'created_at'  => $now,
                     'updated_at'  => $now,
                 ];
@@ -236,10 +243,37 @@ class SampleTargetJob implements ShouldQueue
         if ($buffer !== []) {
             SampleTarget::insert($buffer);
             $imported += count($buffer);
+            $buffer = [];
         }
 
-        // Return number of data rows (each row produces 2 records, so divide by 2
-        // if you want "hotel rows"; keep as-is if you want total DB records inserted).
+        // Province records — summed from all regency rows
+        $buffer[] = [
+            'id'          => (string) Str::uuid(),
+            'month_id'    => $monthId,
+            'year_id'     => $yearId,
+            'category_id' => $bintangCatId,
+            'regency_id'  => $provinceId,
+            'is_default'  => $isDefault,
+            'value'       => $provinceSums['bintang'],
+            'created_at'  => $now,
+            'updated_at'  => $now,
+        ];
+
+        $buffer[] = [
+            'id'          => (string) Str::uuid(),
+            'month_id'    => $monthId,
+            'year_id'     => $yearId,
+            'category_id' => $nonBintangCatId,
+            'regency_id'  => $provinceId,
+            'is_default'  => $isDefault,
+            'value'       => $provinceSums['non_bintang'],
+            'created_at'  => $now,
+            'updated_at'  => $now,
+        ];
+
+        SampleTarget::insert($buffer);
+        $imported += count($buffer);
+
         return $imported;
     }
 
