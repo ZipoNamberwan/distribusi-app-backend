@@ -18,7 +18,8 @@ Route::inertia('/', 'Welcome', [
 ])->name('home');
 
 Route::middleware(['auth', 'verified'])->group(function () {
-    Route::inertia('dashboard', 'Dashboard')->name('dashboard');
+
+    Route::get('dashboard', [DataController::class, 'showDashboard'])->name('data.dashboard.index');
 
     Route::get('data', [DataController::class, 'showRawDataPage'])->name('data.index');
     Route::get('data/input', [DataController::class, 'getInputData'])->name('data.raw.index');
@@ -26,15 +27,15 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     //group route only for adminprov
     // Route::middleware('role:adminprov')->group(function () {
-        Route::get('input/upload', [InputController::class, 'showUploadForm'])->name('upload.index');
-        Route::get('input/template', [InputController::class, 'downloadInputTemplate'])->name('upload.template.index');
-        Route::post('input/upload', [InputController::class, 'storeUpload'])->name('upload.store.index');
-        Route::post('input/download', [InputController::class, 'downloadFile'])->name('upload.file.download');
+    Route::get('input/upload', [InputController::class, 'showUploadForm'])->name('upload.index');
+    Route::get('input/template', [InputController::class, 'downloadInputTemplate'])->name('upload.template.index');
+    Route::post('input/upload', [InputController::class, 'storeUpload'])->name('upload.store.index');
+    Route::post('input/download', [InputController::class, 'downloadFile'])->name('upload.file.download');
 
-        Route::get('user', [UserController::class, 'showUserPage'])->name('user.page.index');
-        Route::post('user', [UserController::class, 'store'])->name('user.page.store');
-        Route::delete('user/{id}', [UserController::class, 'delete'])->name('user.delete.index');
-        Route::get('user/data', [UserController::class, 'getUserData'])->name('user.data.index');
+    Route::get('user', [UserController::class, 'showUserPage'])->name('user.page.index');
+    Route::post('user', [UserController::class, 'store'])->name('user.page.store');
+    Route::delete('user/{id}', [UserController::class, 'delete'])->name('user.delete.index');
+    Route::get('user/data', [UserController::class, 'getUserData'])->name('user.data.index');
     // });
 
     Route::get('indicator', [DataController::class, 'showIndicatorValuesPage'])->name('indicator.table.index');

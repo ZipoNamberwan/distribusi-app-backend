@@ -3,6 +3,8 @@
 namespace App\Http\Controllers;
 
 use App\Models\Category;
+use App\Models\Enumeration;
+use App\Models\ErrorSummary;
 use App\Models\Indicator;
 use App\Models\IndicatorValue;
 use App\Models\Year;
@@ -10,8 +12,10 @@ use Illuminate\Http\Request;
 use App\Models\Input;
 use App\Models\Month;
 use App\Models\Regency;
+use App\Models\SampleTarget;
 use App\Models\SyncStatus;
 use App\Models\User;
+use Carbon\Carbon;
 use DateTime;
 use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
@@ -19,6 +23,102 @@ use Symfony\Component\HttpFoundation\JsonResponse;
 
 class DataController extends Controller
 {
+
+    public function showDashboard()
+    {
+        $user = User::find(Auth::id());
+
+        // ================= LATEST PERIOD =================
+        $latestPeriod = IndicatorValue::query()
+            ->select('year_id', 'month_id')
+            ->where('regency_id', $user->regency_id)
+            ->where('indicator_id', 1)
+            ->orderByDesc('year_id')
+            ->orderByDesc('month_id')
+            ->first();
+
+        // If no data → return default
+        if (! $latestPeriod) {
+            return Inertia::render('Dashboard', [
+                'tpk' => 0,
+                'enumeration' => 0,
+                'error' => 0,
+                'period' => null,
+            ]);
+        }
+
+        // ================= PERIOD =================
+        $latestMonth = Month::find($latestPeriod->month_id);
+        $latestYear = Year::find($latestPeriod->year_id);
+
+        // ================= TPK =================
+        $tpkAggregate = IndicatorValue::query()
+            ->selectRaw('SUM(numerator) as total_numerator, SUM(denominator) as total_denominator')
+            ->where('year_id', $latestPeriod->year_id)
+            ->where('month_id', $latestPeriod->month_id)
+            ->where('regency_id', $user->regency_id)
+            ->where('indicator_id', 1)
+            ->first();
+
+        $totalNumerator = $tpkAggregate?->total_numerator ?? 0;
+        $totalDenominator = $tpkAggregate?->total_denominator ?? 0;
+
+        $tpk = $totalDenominator != 0
+            ? round(($totalNumerator / $totalDenominator) * 100, 2)
+            : 0;
+
+        // ================= ENUMERATION =================
+        $enumerationData = Enumeration::query()
+            ->selectRaw('SUM(value) as total_value')
+            ->where('year_id', $latestPeriod->year_id)
+            ->where('month_id', $latestPeriod->month_id)
+            ->where('regency_id', $user->regency_id)
+            ->first();
+
+        $totalEnumeration = $enumerationData?->total_value ?? 0;
+
+        // ================= SAMPLE TARGET (original fallback logic) =================
+        $query = SampleTarget::query()
+            ->where('year_id', $latestPeriod->year_id)
+            ->where('regency_id', $user->regency_id);
+
+        $sampleData = (clone $query)
+            ->where('month_id', $latestPeriod->month_id)
+            ->first()
+            ?? $query->first(); // 👈 unchanged logic
+
+        $sampleValue = $sampleData?->value ?? 0;
+
+        // ================= PERCENTAGE =================
+        $percentage = $sampleValue != 0
+            ? round(($totalEnumeration / $sampleValue) * 100, 2)
+            : 0;
+
+        // ================= ERROR =================
+        $errorData = ErrorSummary::query()
+            ->selectRaw('SUM(value) as total_value')
+            ->where('year_id', $latestPeriod->year_id)
+            ->where('month_id', $latestPeriod->month_id)
+            ->where('regency_id', $user->regency_id)
+            ->where('error_id', 2)
+            ->first();
+
+        $errorTotal = $errorData?->total_value ?? 0;
+
+        // ================= RESPONSE =================
+        return Inertia::render('Dashboard', [
+            'tpk' => $tpk,
+            'enumeration' => $percentage,
+            'error' => $errorTotal,
+            'period' => ($latestMonth && $latestYear)
+                ? [
+                    'month' => $latestMonth,
+                    'year' => $latestYear,
+                ]
+                : null,
+        ]);
+    }
+
     public function showRawDataPage()
     {
         $user = User::find(Auth::id());
