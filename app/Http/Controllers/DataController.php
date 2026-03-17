@@ -127,7 +127,7 @@ class DataController extends Controller
 
         // ================= REGENCIES =================
         $regencies = Regency::query()
-            ->select('id', 'name', 'short_code')
+            ->select('id', 'name', 'short_code', 'long_code')
             ->get();
 
         // ================= CALCULATE =================
@@ -167,6 +167,7 @@ class DataController extends Controller
                         'id' => $regency->id,
                         'name' => $regency->name,
                         'short_code' => $regency->short_code,
+                        'long_code' => $regency->long_code,
                     ],
                     'value' => $percentage,
                 ]
@@ -188,6 +189,7 @@ class DataController extends Controller
                 : null,
 
             'mapData' => $result,
+            'selectedRegency' => Regency::find($user->regency_id),
         ]);
     }
 

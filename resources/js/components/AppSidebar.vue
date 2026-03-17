@@ -1,5 +1,5 @@
-<script setup lang="ts">
-import { Link } from '@inertiajs/vue3';
+<script setup>
+import { Link, usePage } from '@inertiajs/vue3';
 import { AlertTriangle, BookOpen, Database, FolderGit2, LayoutGrid, Upload, ChartBar, Rainbow, User, Bolt, Columns4 } from 'lucide-vue-next';
 import AppLogo from '@/components/AppLogo.vue';
 import NavFooter from '@/components/NavFooter.vue';
@@ -25,16 +25,12 @@ import { index as userPage } from '@/routes/user/page';
 import { index as confirmationPage } from '@/routes/confirmation/page';
 import { index as phenomenaPage } from '@/routes/phenomena/page';
 
-import type { NavItem } from '@/types';
+const page = usePage();
+const roles = page.props.auth.roles;
 
-type NavGroup = {
-    label: string
-    items: NavItem[]
-}
+const isAdminProv = roles.includes('adminprov');
 
-type SidebarEntry = NavItem | NavGroup
-
-const sidebarItems: SidebarEntry[] = [
+const sidebarItems = [
     {
         title: 'Dashboard',
         href: dashboard(),
@@ -80,24 +76,26 @@ const sidebarItems: SidebarEntry[] = [
             },
         ],
     },
-    {
-        label: 'Admin',
-        items: [
-            {
-                title: 'Upload Data',
-                href: dataUpload(),
-                icon: Upload,
-            },
-            {
-                title: 'Manajemen User',
-                href: userPage(),
-                icon: User,
-            },
-        ],
-    },
-]
+    ...(isAdminProv ? [
+        {
+            label: 'Admin',
+            items: [
+                {
+                    title: 'Upload Data',
+                    href: dataUpload(),
+                    icon: Upload,
+                },
+                {
+                    title: 'Manajemen User',
+                    href: userPage(),
+                    icon: User,
+                },
+            ],
+        },
+    ] : []),
+];
 
-const footerNavItems: NavItem[] = [
+const footerNavItems = [
     {
         title: 'Repository',
         href: 'https://github.com/laravel/vue-starter-kit',

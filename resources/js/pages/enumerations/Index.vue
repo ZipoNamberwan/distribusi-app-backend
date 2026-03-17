@@ -373,7 +373,7 @@ function toTitleCase(str) {
     <AppLayout :breadcrumbs="breadcrumbs">
         <div class="flex flex-col gap-4 p-2 sm:p-4">
             <Card>
-                <CardHeader class="px-3 py-4 sm:px-4">
+                <CardHeader class="px-3 sm:px-4">
                     <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
                         <div class="space-y-1">
                             <CardTitle class="text-lg sm:text-xl">
