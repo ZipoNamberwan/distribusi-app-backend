@@ -2,5 +2,7 @@
 !private/
 !private/template/
 !private/template/*
+!private/geojson/
+!private/geojson/*
 !public/
 !.gitignore

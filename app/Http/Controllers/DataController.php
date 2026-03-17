@@ -15,9 +15,9 @@ use App\Models\Regency;
 use App\Models\SampleTarget;
 use App\Models\SyncStatus;
 use App\Models\User;
-use Carbon\Carbon;
 use DateTime;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 use Symfony\Component\HttpFoundation\JsonResponse;
 
@@ -79,15 +79,21 @@ class DataController extends Controller
 
         // ================= SAMPLE TARGET (original fallback logic) =================
         $query = SampleTarget::query()
+            ->selectRaw('SUM(value) as total_value')
             ->where('year_id', $latestPeriod->year_id)
             ->where('regency_id', $user->regency_id);
 
+        // Try month first
         $sampleData = (clone $query)
             ->where('month_id', $latestPeriod->month_id)
-            ->first()
-            ?? $query->first(); // 👈 unchanged logic
+            ->first();
 
-        $sampleValue = $sampleData?->value ?? 0;
+        // If NULL result → fallback to year only
+        if (!$sampleData || $sampleData->total_value === null) {
+            $sampleData = $query->first();
+        }
+
+        $sampleValue = $sampleData?->total_value ?? 0;
 
         // ================= PERCENTAGE =================
         $percentage = $sampleValue != 0
@@ -105,6 +111,70 @@ class DataController extends Controller
 
         $errorTotal = $errorData?->total_value ?? 0;
 
+        // Card stop here
+
+
+        // Map start here
+
+        // ================= ENUMERATION =================
+        $enumerations = Enumeration::query()
+            ->selectRaw('regency_id, SUM(value) as total_value')
+            ->where('year_id', $latestPeriod->year_id)
+            ->where('month_id', $latestPeriod->month_id)
+            ->groupBy('regency_id')
+            ->get()
+            ->keyBy('regency_id');
+
+        // ================= REGENCIES =================
+        $regencies = Regency::query()
+            ->select('id', 'name', 'short_code')
+            ->get();
+
+        // ================= CALCULATE =================
+        $result = $regencies->mapWithKeys(function ($regency) use ($enumerations, $latestPeriod) {
+
+            $regencyId = $regency->id;
+
+            // ================= ENUMERATION =================
+            $totalEnumeration = $enumerations[$regencyId]->total_value ?? 0;
+
+            // ================= SAMPLE TARGET (SUM + FALLBACK FIX) =================
+            $baseQuery = SampleTarget::query()
+                ->selectRaw('SUM(value) as total_value')
+                ->where('year_id', $latestPeriod->year_id)
+                ->where('regency_id', $regencyId);
+
+            // Try month first
+            $sampleData = (clone $baseQuery)
+                ->where('month_id', $latestPeriod->month_id)
+                ->first();
+
+            // IMPORTANT: check VALUE, not object
+            if (!$sampleData || $sampleData->total_value === null) {
+                $sampleData = $baseQuery->first();
+            }
+
+            $sampleValue = $sampleData->total_value ?? 0;
+
+            // ================= PERCENTAGE =================
+            $percentage = $sampleValue != 0
+                ? round(($totalEnumeration / $sampleValue) * 100, 2)
+                : 0;
+
+            return [
+                $regencyId => [
+                    'regency' => [
+                        'id' => $regency->id,
+                        'name' => $regency->name,
+                        'short_code' => $regency->short_code,
+                    ],
+                    'value' => $percentage,
+                ]
+            ];
+        });
+
+        // Map end here
+
         // ================= RESPONSE =================
         return Inertia::render('Dashboard', [
             'tpk' => $tpk,
@@ -116,7 +186,24 @@ class DataController extends Controller
                     'year' => $latestYear,
                 ]
                 : null,
+
+            'mapData' => $result,
         ]);
+    }
+
+    public function showMap()
+    {
+        $path = "geojson/prov.geojson";
+
+        if (!Storage::disk('local')->exists($path)) {
+            return response()->json([
+                'message' => 'GeoJSON file not found'
+            ], 404);
+        }
+
+        $content = Storage::disk('local')->get($path);
+
+        return response($content, 200);
     }
 
     public function showRawDataPage()

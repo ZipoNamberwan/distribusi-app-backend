@@ -25,6 +25,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('data/input', [DataController::class, 'getInputData'])->name('data.raw.index');
     Route::get('status/data/{type}', [DataController::class, 'getUploadStatusData'])->name('data.status.index');
 
+    Route::get('map', [DataController::class, 'showMap'])->name('data.map.index');
+
     //group route only for adminprov
     // Route::middleware('role:adminprov')->group(function () {
     Route::get('input/upload', [InputController::class, 'showUploadForm'])->name('upload.index');
