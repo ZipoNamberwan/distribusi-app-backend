@@ -88,12 +88,12 @@ defineProps<{
 
                 <Button
                     type="submit"
-                    class="mt-4 w-full"
+                    class="mt-6 w-full shadow-lg shadow-primary/20 text-base h-11 font-semibold transition-all hover:shadow-primary/30"
                     :tabindex="4"
                     :disabled="processing"
                     data-test="login-button"
                 >
-                    <Spinner v-if="processing" />
+                    <Spinner v-if="processing" class="mr-2" />
                     Log in
                 </Button>
             </div>

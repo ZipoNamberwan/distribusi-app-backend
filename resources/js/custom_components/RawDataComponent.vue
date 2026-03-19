@@ -4,6 +4,7 @@ import { usePagination } from 'vue-request';
 import { index as rawDataIndex } from '@/routes/data/raw';
 import moment from 'moment';
 import { SearchOutlined, ClearOutlined } from '@ant-design/icons-vue';
+import { useAppearance } from '@/composables/useAppearance';
 
 const lastParams = ref({});
 const searchInput = ref();
@@ -40,10 +41,16 @@ const props = defineProps({
     },
 });
 
-const BACKGROUND_COLORS = ['#e6f4ff', '#f6ffed', '#fff7e6', '#f9f0ff', '#fff0f6',]
+const { resolvedAppearance } = useAppearance();
+const THEME_COLORS = {
+    light: ['#e6f4ff', '#f6ffed', '#fff7e6', '#f9f0ff', '#fff0f6'],
+    dark: ['#112a45', '#16331e', '#362111', '#281b36', '#361b27']
+};
+const defaultBg = computed(() => resolvedAppearance.value === 'dark' ? '#1f1f1f' : '#f5f5f5');
+const backgroundColors = computed(() => THEME_COLORS[resolvedAppearance.value === 'dark' ? 'dark' : 'light']);
 
 function getBgColor(index) {
-    return { background: BACKGROUND_COLORS[index] };
+    return { background: backgroundColors.value[index] || defaultBg.value };
 }
 
 const filteredColumns = computed(() => {
@@ -322,7 +329,7 @@ const handleReset = clearFilters => {
 
 <template>
 
-    <div class="flex flex-wrap items-center gap-3 mb-4 p-3 bg-gray-50 rounded-lg border border-gray-200">
+    <div class="flex flex-wrap items-center gap-3 mb-4 p-3 rounded-lg border">
         <!-- <span class="text-sm font-medium text-gray-500 shrink-0">Filter Periode</span> -->
         <a-select v-model:value="selectedMonth" placeholder="Semua Bulan" class="w-44" @change="handleFilter">
             <a-select-option v-for="month in props.months" :key="month.id" :value="month.id">

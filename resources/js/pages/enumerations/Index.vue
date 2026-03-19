@@ -4,6 +4,7 @@ import { Head } from '@inertiajs/vue3';
 import AppLayout from '@/layouts/AppLayout.vue';
 import { index as enumerationPage } from '@/routes/enumeration/page';
 import { index as enumerationIndex } from '@/routes/enumeration/data';
+import { useAppearance } from '@/composables/useAppearance';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import EnumerationsMobile from '@/custom_components/mobile/EnumerationsMobile.vue';
 
@@ -25,7 +26,13 @@ const selectedYear = ref(props.initialPeriod.year?.id ?? null);
 const selectedRegency = ref([]);
 const selectedPeriod = ref(props.initialPeriod);
 
-const BACKGROUND_COLORS = ['#e6f4ff', '#f6ffed', '#fff7e6', '#f9f0ff', '#fff0f6',]
+const { resolvedAppearance } = useAppearance();
+const THEME_COLORS = {
+    light: ['#e6f4ff', '#f6ffed', '#fff7e6', '#f9f0ff', '#fff0f6'],
+    dark: ['#112a45', '#16331e', '#362111', '#281b36', '#361b27']
+};
+const defaultBg = computed(() => resolvedAppearance.value === 'dark' ? '#1f1f1f' : '#f5f5f5');
+const backgroundColors = computed(() => THEME_COLORS[resolvedAppearance.value === 'dark' ? 'dark' : 'light']);
 
 const onResize = () => { isSmallScreen.value = window.innerWidth < 640; };
 onUnmounted(() => window.removeEventListener('resize', onResize));
@@ -115,7 +122,7 @@ const getTotalValue = (record, parentKey) => {
 
 const enumerationColumns = computed(() =>
     parentColumn.map((parent, index) => {
-        const bg = BACKGROUND_COLORS[index % BACKGROUND_COLORS.length] ?? '#f5f5f5';
+        const bg = backgroundColors.value[index % backgroundColors.value.length] ?? defaultBg.value;
         const cell = () => ({ style: { background: bg } });
 
         const categoryColumns = props.categories.map((cat) => ({
@@ -330,7 +337,7 @@ const mobileCardConfig = computed(() => ({
             sections.push({
                 title: col.title,
                 key: col.key,
-                color: BACKGROUND_COLORS[index % BACKGROUND_COLORS.length] || '#f5f5f5',
+                color: backgroundColors.value[index % backgroundColors.value.length] || defaultBg.value,
                 items,
             });
         });

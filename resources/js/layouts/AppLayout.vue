@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import AppLayout from '@/layouts/app/AppSidebarLayout.vue';
 import type { BreadcrumbItem } from '@/types';
-import { theme } from 'ant-design-vue'
-import { computed, ref } from 'vue';
+import { theme } from 'ant-design-vue';
+import { computed } from 'vue';
+import { useAppearance } from '@/composables/useAppearance';
 
 type Props = {
     breadcrumbs?: BreadcrumbItem[];
@@ -12,13 +13,17 @@ withDefaults(defineProps<Props>(), {
     breadcrumbs: () => [],
 });
 
-const isDark = ref(false)
+const { resolvedAppearance } = useAppearance();
 
 const currentTheme = computed(() => ({
-    algorithm: isDark.value
+    algorithm: resolvedAppearance.value === 'dark'
         ? theme.darkAlgorithm
-        : theme.defaultAlgorithm
-}))
+        : theme.defaultAlgorithm,
+    token: {
+        colorPrimary: '#2563eb', // Beautiful blue primary
+        borderRadius: 8,
+    }
+}));
 </script>
 
 <template>

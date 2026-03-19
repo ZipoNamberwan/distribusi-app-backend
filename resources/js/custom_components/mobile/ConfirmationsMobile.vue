@@ -119,7 +119,7 @@ function setRejectOpen(id, val) { rejectOpen.value = { ...rejectOpen.value, [id]
 
             <!-- Select all bar (adminprov only) -->
             <div v-if="roles.includes('adminprov')"
-                class="flex items-center justify-between px-3 py-2 rounded-lg bg-gray-50 border border-gray-100">
+                class="flex items-center justify-between px-3 py-2 rounded-lg border">
                 <a-checkbox :checked="allSelected" :indeterminate="indeterminate" @change="toggleSelectAll">
                     <a-typography-text class="!text-xs">
                         Pilih semua

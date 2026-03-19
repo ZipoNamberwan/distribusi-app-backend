@@ -13,19 +13,21 @@ import {
     DropdownMenuItem,
     DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu';
+import { useAppearance } from '@/composables/useAppearance';
+import { logout } from '@/routes';
 
-// Theme state (sync with AppLayout)
-const isDark = ref(false);
+// Theme state (handled globally now)
+const { appearance, updateAppearance } = useAppearance();
+const isDark = computed(() => appearance.value === 'dark');
+
 const toggleTheme = () => {
-    isDark.value = !isDark.value;
-    document.documentElement.classList.toggle('dark', isDark.value);
-    // Optionally emit or use a global store for theme
+    updateAppearance(isDark.value ? 'light' : 'dark');
 };
 
 const page = usePage();
 const user = computed(() => page.props.auth.user);
 const handleLogout = () => {
-    router.flushAll();
+    router.post(logout());
 };
 
 withDefaults(
@@ -40,7 +42,7 @@ withDefaults(
 
 <template>
     <header
-        class="flex h-16 shrink-0 items-center gap-2 border-b border-sidebar-border/70 px-6 transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12 md:px-4"
+        class="sticky top-0 z-10 flex h-16 shrink-0 items-center gap-2 border-b border-border/50 bg-background/80 backdrop-blur-md px-6 transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12 md:px-4"
     >
         <div class="flex items-center gap-2 flex-1">
             <SidebarTrigger class="-ml-1" />
@@ -50,14 +52,14 @@ withDefaults(
         </div>
         <div class="flex items-center gap-2">
             <!-- Theme Toggle Button -->
-            <!-- <button
-                class="p-2 rounded hover:bg-sidebar-accent focus:outline-none"
+            <button
+                class="p-2 mr-2 rounded-full hover:bg-sidebar-accent focus:outline-none transition-colors"
                 @click="toggleTheme"
                 :aria-label="isDark ? 'Switch to light mode' : 'Switch to dark mode'"
             >
-                <Sun v-if="!isDark" class="w-5 h-5" />
-                <Moon v-else class="w-5 h-5" />
-            </button> -->
+                <Sun v-if="!isDark" class="w-5 h-5 text-neutral-600 hover:text-neutral-900 transition-colors" />
+                <Moon v-else class="w-5 h-5 text-neutral-400 hover:text-white transition-colors" />
+            </button>
             <!-- User/Logout Dropdown -->
             <DropdownMenu>
                 <DropdownMenuTrigger as-child>

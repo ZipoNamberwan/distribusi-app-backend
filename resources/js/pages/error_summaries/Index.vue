@@ -5,6 +5,7 @@ import AppLayout from '@/layouts/AppLayout.vue';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { index as errorSummariesPage } from '@/routes/error_summaries/page';
 import { index as errorSummariesData } from '@/routes/error_summaries/data';
+import { useAppearance } from '@/composables/useAppearance';
 import ErrorSummariesMobile from '@/custom_components/mobile/ErrorSummariesMobile.vue';
 
 const breadcrumbs = [
@@ -29,11 +30,17 @@ onUnmounted(() => window.removeEventListener('resize', onResize));
 
 const colWidth = computed(() => (isSmallScreen.value ? 40 : 90));
 
-const BACKGROUND_COLORS = ['#e6f4ff', '#f6ffed', '#fff7e6', '#f9f0ff', '#fff0f6',]
+const { resolvedAppearance } = useAppearance();
+const THEME_COLORS = {
+    light: ['#e6f4ff', '#f6ffed', '#fff7e6', '#f9f0ff', '#fff0f6'],
+    dark: ['#112a45', '#16331e', '#362111', '#281b36', '#361b27']
+};
+const defaultBg = computed(() => resolvedAppearance.value === 'dark' ? '#1f1f1f' : '#f5f5f5');
+const backgroundColors = computed(() => THEME_COLORS[resolvedAppearance.value === 'dark' ? 'dark' : 'light']);
 
 const errorColumns = computed(() =>
     props.errors.map((err, index) => {
-        const bg = BACKGROUND_COLORS[index % BACKGROUND_COLORS.length] ?? '#f5f5f5';
+        const bg = backgroundColors.value[index % backgroundColors.value.length] ?? defaultBg.value;
         const cell = () => ({ style: { background: bg } });
         return {
             key: err.id,
@@ -142,7 +149,7 @@ const mobileCardConfig = computed(() => ({
 
         // Errors per category + total
         props.errors.forEach((err, index) => {
-            const bg = BACKGROUND_COLORS[index % BACKGROUND_COLORS.length] ?? '#f5f5f5';
+            const bg = backgroundColors.value[index % backgroundColors.value.length] ?? defaultBg.value;
             const items = props.categories.map((cat) => {
                 const key = `${err.id}_${cat.id}`;
                 return { value: record.values?.[key] ?? 0 };

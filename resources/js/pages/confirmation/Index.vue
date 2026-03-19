@@ -544,60 +544,68 @@ watch(
             </Card>
         </div>
 
-        <a-modal v-model:open="isFormDialogOpen" :footer="null" title="Konfirmasi" :width="480">
-            <div class="flex flex-col gap-4 pt-1 pb-1">
+        <a-modal v-model:open="isFormDialogOpen" :footer="null" title="Tindak Lanjut Error" :width="520">
+            <div class="flex flex-col gap-5 pt-4">
 
-                <!-- Record info -->
-                <div class="rounded-lg overflow-hidden border border-gray-100 divide-y divide-gray-100 bg-gray-50">
-
-                    <div class="flex items-center gap-3 px-4 py-2.5">
-                        <HomeOutlined class="text-gray-400 text-xs" />
-                        <span class="text-xs text-gray-400 w-28 shrink-0">Nama komersial</span>
-                        <span class="text-sm font-medium text-gray-800">{{ form.record?.input?.nama_komersial ?? '-'
-                        }}</span>
-                    </div>
-
-                    <div class="flex items-center gap-3 px-4 py-2.5">
-                        <EnvironmentOutlined class="text-gray-400 text-xs" />
-                        <span class="text-xs text-gray-400 w-28 shrink-0">Kab/Kota</span>
-                        <span class="text-sm font-medium text-gray-800">[{{ form.record?.input?.regency?.long_code ??
-                            '-' }}] {{
-                                form.record?.input?.regency?.name ?? '-' }}</span>
-                    </div>
-
-                    <div class="flex items-center gap-3 px-4 py-2.5">
-                        <TableOutlined class="text-gray-400 text-xs" />
-                        <span class="text-xs text-gray-400 w-28 shrink-0">Kode wilayah</span>
-                        <span class="text-sm font-medium text-gray-800 font-mono">
-                            {{ [form.record?.input?.kode_kab, form.record?.input?.kode_kec,
-                            form.record?.input?.kode_des].filter(Boolean).join('')
-                                || '-' }}
+                <!-- Record info (Grid layout) -->
+                <div class="grid grid-cols-2 gap-4 p-4 rounded-xl bg-gray-50 dark:bg-gray-800/50 border border-gray-100 dark:border-gray-800">
+                    <div class="flex flex-col gap-1.5">
+                        <div class="flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wider font-semibold">
+                            <HomeOutlined />
+                            <span>Komersial</span>
+                        </div>
+                        <span class="text-sm font-medium text-gray-900 dark:text-gray-100">
+                            {{ form.record?.input?.nama_komersial ?? '-' }}
                         </span>
                     </div>
 
-                    <div class="flex items-center gap-3 px-4 py-2.5">
-                        <InfoCircleOutlined class="text-red-400 text-xs" />
-                        <span class="text-xs text-gray-400 w-28 shrink-0">Jenis kesalahan</span>
-                        <span class="text-xs font-medium text-red-500 bg-red-50 px-2 py-0.5 rounded">
-                            {{ form.record?.error_type?.column_name ?? '-' }}
+                    <div class="flex flex-col gap-1.5">
+                        <div class="flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wider font-semibold">
+                            <EnvironmentOutlined />
+                            <span>Wilayah</span>
+                        </div>
+                        <span class="text-sm font-medium text-gray-900 dark:text-gray-100">
+                            [{{ form.record?.input?.regency?.long_code ?? '-' }}] {{ form.record?.input?.regency?.name ?? '-' }}
                         </span>
                     </div>
 
+                    <div class="flex flex-col gap-1.5">
+                        <div class="flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wider font-semibold">
+                            <TableOutlined />
+                            <span>Kode Valid</span>
+                        </div>
+                        <span class="text-sm font-medium text-gray-900 dark:text-gray-100 font-mono bg-white dark:bg-gray-900 px-2 py-0.5 rounded shadow-sm self-start border border-gray-200 dark:border-gray-700">
+                            {{ [form.record?.input?.kode_kab, form.record?.input?.kode_kec, form.record?.input?.kode_des].filter(Boolean).join('') || '-' }}
+                        </span>
+                    </div>
+
+                    <div class="flex flex-col gap-1.5">
+                        <div class="flex items-center gap-1.5 text-xs text-red-500 dark:text-red-400 uppercase tracking-wider font-semibold">
+                            <InfoCircleOutlined />
+                            <span>Error Flag</span>
+                        </div>
+                        <div>
+                            <span class="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-semibold bg-red-100 text-red-700 dark:bg-red-500/20 dark:text-red-400 border border-red-200 dark:border-red-500/30">
+                                {{ form.record?.error_type?.column_name ?? '-' }}
+                            </span>
+                        </div>
+                    </div>
                 </div>
 
                 <!-- Form -->
                 <a-form :key="formKey" layout="vertical" :model="form" :rules="rules" ref="formRef">
-                    <a-form-item name="notes" label="Catatan" :validate-status="form.errors.notes ? 'error' : undefined"
-                        :help="form.errors.notes" class="mb-0">
-                        <a-textarea v-model:value="form.notes" placeholder="Tuliskan catatan di sini..."
-                            :auto-size="{ minRows: 3, maxRows: 7 }" />
+                    <a-form-item name="notes" :validate-status="form.errors.notes ? 'error' : undefined" :help="form.errors.notes" class="mb-0">
+                        <template #label>
+                            <span class="text-sm font-medium text-gray-700 dark:text-gray-300">Catatan Penyelesaian</span>
+                        </template>
+                        <a-textarea v-model:value="form.notes" placeholder="Berikan alasan atau detail penyelesaian..." :auto-size="{ minRows: 4, maxRows: 8 }" class="!rounded-lg" />
                     </a-form-item>
                 </a-form>
 
                 <!-- Actions -->
-                <div class="flex justify-end gap-2">
-                    <a-button @click="isFormDialogOpen = false">Batal</a-button>
-                    <a-button type="primary" :loading="form.processing" @click="submit">Simpan</a-button>
+                <div class="flex justify-end gap-3 pt-3 mt-1 border-t border-gray-100 dark:border-gray-800">
+                    <a-button @click="isFormDialogOpen = false" class="!rounded-lg">Kembali</a-button>
+                    <a-button type="primary" :loading="form.processing" @click="submit" class="!rounded-lg shadow-md shadow-blue-500/20 px-6">Simpan Konfirmasi</a-button>
                 </div>
 
             </div>

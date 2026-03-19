@@ -17,7 +17,7 @@ type Props = {
 };
 
 const handleLogout = () => {
-    router.flushAll();
+    router.post(logout());
 };
 
 defineProps<Props>();
@@ -40,15 +40,13 @@ defineProps<Props>();
     </DropdownMenuGroup> -->
     <DropdownMenuSeparator />
     <DropdownMenuItem :as-child="true">
-        <Link
-            class="block w-full cursor-pointer"
-            :href="logout()"
+        <button
+            class="flex items-center w-full text-left"
             @click="handleLogout"
-            as="button"
             data-test="logout-button"
         >
             <LogOut class="mr-2 h-4 w-4" />
             Log out
-        </Link>
+        </button>
     </DropdownMenuItem>
 </template>

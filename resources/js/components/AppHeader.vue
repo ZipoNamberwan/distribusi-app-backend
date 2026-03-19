@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Link, usePage } from '@inertiajs/vue3';
-import { BookOpen, Folder, LayoutGrid, Menu, Search } from 'lucide-vue-next';
+import { BookOpen, Folder, LayoutGrid, Menu, Search, Moon, Sun } from 'lucide-vue-next';
 import { computed } from 'vue';
 import AppLogo from '@/components/AppLogo.vue';
 import AppLogoIcon from '@/components/AppLogoIcon.vue';
@@ -33,6 +33,7 @@ import {
 } from '@/components/ui/tooltip';
 import UserMenuContent from '@/components/UserMenuContent.vue';
 import { useCurrentUrl } from '@/composables/useCurrentUrl';
+import { useAppearance } from '@/composables/useAppearance';
 import { getInitials } from '@/composables/useInitials';
 import { toUrl } from '@/lib/utils';
 import { dashboard } from '@/routes';
@@ -49,6 +50,13 @@ const props = withDefaults(defineProps<Props>(), {
 const page = usePage();
 const auth = computed(() => page.props.auth);
 const { isCurrentUrl, whenCurrentUrl } = useCurrentUrl();
+
+// Theme state
+const { appearance, updateAppearance } = useAppearance();
+const isDark = computed(() => appearance.value === 'dark');
+const toggleTheme = () => {
+    updateAppearance(isDark.value ? 'light' : 'dark');
+};
 
 const activeItemStyles =
     'text-neutral-900 dark:bg-neutral-800 dark:text-neutral-100';
@@ -201,6 +209,18 @@ const rightNavItems: NavItem[] = [
                         </Button>
 
                         <div class="hidden space-x-1 lg:flex">
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                class="h-9 w-9 cursor-pointer transition-colors"
+                                @click="toggleTheme"
+                            >
+                                <component
+                                    :is="isDark ? Sun : Moon"
+                                    class="size-5 opacity-80 hover:opacity-100"
+                                />
+                                <span class="sr-only">Toggle theme</span>
+                            </Button>
                             <template
                                 v-for="item in rightNavItems"
                                 :key="item.title"

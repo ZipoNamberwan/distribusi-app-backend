@@ -6,6 +6,7 @@ import { Head } from '@inertiajs/vue3';
 import { index as dataIndex } from '@/routes/indicator/data';
 import { index as tableIndex } from '@/routes/indicator/table';
 import IndicatorValuesMobile from '@/custom_components/mobile/IndicatorValuesMobile.vue';
+import { useAppearance } from '@/composables/useAppearance';
 
 const breadcrumbs = [
     {
@@ -39,7 +40,15 @@ onUnmounted(() => window.removeEventListener('resize', onResize));
 
 const colWidth = computed(() => (isSmallScreen.value ? 40 : 90));
 
-const BACKGROUND_COLORS = ['#e6f4ff', '#f6ffed', '#fff7e6', '#f9f0ff', '#fff0f6',]
+const { resolvedAppearance } = useAppearance();
+
+const THEME_COLORS = {
+    light: ['#e6f4ff', '#f6ffed', '#fff7e6', '#f9f0ff', '#fff0f6'],
+    dark: ['#112a45', '#16331e', '#362111', '#281b36', '#361b27']
+};
+
+const defaultBg = computed(() => resolvedAppearance.value === 'dark' ? '#1f1f1f' : '#f5f5f5');
+const backgroundColors = computed(() => THEME_COLORS[resolvedAppearance.value === 'dark' ? 'dark' : 'light']);
 
 // =====================================================
 // MOBILE CARD CONFIGURATION
@@ -56,7 +65,7 @@ const mobileCardConfig = computed(() => ({
         .filter((ind) => visibleIndicators.value.includes(ind.id))
         .map((ind, index) => ({
             title: ind.name,
-            color: BACKGROUND_COLORS[index % BACKGROUND_COLORS.length] || '#f5f5f5',
+            color: backgroundColors.value[index % backgroundColors.value.length] || defaultBg.value,
             // Function to dynamically generate items for this section
             items: (record) => {
                 const items = [];
@@ -106,7 +115,7 @@ const mobileCardConfig = computed(() => ({
 // =====================================================
 const allIndicatorColumns = computed(() =>
     props.indicators.map((ind, index) => {
-        const bg = BACKGROUND_COLORS[index % BACKGROUND_COLORS.length] ?? '#f5f5f5';
+        const bg = backgroundColors.value[index % backgroundColors.value.length] ?? defaultBg.value;
         const cell = () => ({ style: { background: bg } });
         return {
             key: ind.id,

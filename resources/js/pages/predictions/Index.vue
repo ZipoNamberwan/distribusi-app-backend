@@ -5,6 +5,7 @@ import AppLayout from '@/layouts/AppLayout.vue';
 import { index as predictionPage } from '@/routes/prediction/page';
 import { index as predictionIndex } from '@/routes/prediction/data';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { useAppearance } from '@/composables/useAppearance';
 import PredictionsMobile from '@/custom_components/mobile/PredictionsMobile.vue';
 import { ArrowUpOutlined, ArrowDownOutlined } from '@ant-design/icons-vue';
 
@@ -26,7 +27,13 @@ const selectedYear = ref(props.initialPeriod.current.year.id);
 const selectedRegency = ref([]);
 const selectedPeriod = ref(props.initialPeriod);
 
-const BACKGROUND_COLORS = ['#e6f4ff', '#f6ffed', '#fff7e6', '#f9f0ff', '#fff0f6',]
+const { resolvedAppearance } = useAppearance();
+const THEME_COLORS = {
+    light: ['#e6f4ff', '#f6ffed', '#fff7e6', '#f9f0ff', '#fff0f6'],
+    dark: ['#112a45', '#16331e', '#362111', '#281b36', '#361b27']
+};
+const defaultBg = computed(() => resolvedAppearance.value === 'dark' ? '#1f1f1f' : '#f5f5f5');
+const backgroundColors = computed(() => THEME_COLORS[resolvedAppearance.value === 'dark' ? 'dark' : 'light']);
 
 const onResize = () => { isSmallScreen.value = window.innerWidth < 640; };
 onUnmounted(() => window.removeEventListener('resize', onResize));
@@ -77,7 +84,7 @@ const growths = [
 
 const growthColumns = computed(() => {
     return growths.map((growth, index) => {
-        const bg = BACKGROUND_COLORS[(index + 1) % BACKGROUND_COLORS.length] ?? '#f5f5f5';
+        const bg = backgroundColors.value[(index + 1) % backgroundColors.value.length] ?? defaultBg.value;
         const cell = () => ({ style: { background: bg } });
         return {
             key: growth.key,
@@ -145,7 +152,7 @@ const growthColumns = computed(() => {
 
 const indicatorColumns = computed(() => {
     return props.indicators.map((ind, index) => {
-        const bg = BACKGROUND_COLORS[0] ?? '#f5f5f5';
+        const bg = backgroundColors.value[0] ?? defaultBg.value;
         const cell = () => ({ style: { background: bg } });
 
         return {
@@ -227,7 +234,7 @@ const mobileCardConfig = computed(() => ({
             });
             sections.push({
                 title: `${ind.short_name ?? ind.name} ${selectedPeriod.value.current.month?.name?.slice(0, 3) ?? ''} ${selectedPeriod.value.current.year?.name ?? ''}`,
-                color: BACKGROUND_COLORS[0] ?? '#f5f5f5',
+                color: backgroundColors.value[0] ?? defaultBg.value,
                 key: ind.id,
                 items,
             });
@@ -244,7 +251,7 @@ const mobileCardConfig = computed(() => ({
             });
             sections.push({
                 title: `${growth.mobileTitle} ${selectedPeriod.value[growth.period].month?.name?.slice(0, 3) ?? ''} ${selectedPeriod.value[growth.period].year?.name ?? ''}`,
-                color: BACKGROUND_COLORS[(index + 1) % BACKGROUND_COLORS.length] ?? '#f5f5f5',
+                color: backgroundColors.value[(index + 1) % backgroundColors.value.length] ?? defaultBg.value,
                 items,
                 key: growth.key,
             });
