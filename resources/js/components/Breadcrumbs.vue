@@ -18,7 +18,7 @@ defineProps<Props>();
 </script>
 
 <template>
-    <Breadcrumb>
+    <Breadcrumb class="flex items-center" style="margin-bottom: 0px; margin-top: 0px;">
         <BreadcrumbList>
             <template v-for="(item, index) in breadcrumbs" :key="index">
                 <BreadcrumbItem>
