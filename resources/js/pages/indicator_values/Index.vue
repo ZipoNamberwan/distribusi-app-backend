@@ -7,7 +7,8 @@ import { index as dataIndex } from '@/routes/indicator/data';
 import { index as tableIndex } from '@/routes/indicator/table';
 import IndicatorValuesMobile from '@/custom_components/mobile/IndicatorValuesMobile.vue';
 import { useAppearance } from '@/composables/useAppearance';
-
+import ExcelJS from 'exceljs';
+import { DownloadOutlined, ShareAltOutlined } from '@ant-design/icons-vue';
 const breadcrumbs = [
     {
         title: 'Indikator',
@@ -237,6 +238,7 @@ const selectedMonth = ref(props.initialPeriod.month.id);
 const selectedYear = ref(props.initialPeriod.year.id);
 const selectedRegency = ref([]);
 const selectedPeriod = ref(props.initialPeriod);
+const downloadLoading = ref(false);
 
 const rows = ref([]);
 const filteredRows = ref([]);
@@ -294,6 +296,116 @@ function toTitleCase(str) {
         .toLowerCase()
         .replace(/\b\w/g, char => char.toUpperCase());
 }
+
+const downloadExcel = async (data) => {
+    const exportIndicators = props.indicators.filter(ind => visibleIndicators.value.includes(ind.id));
+    const periodString = selectedPeriod.value?.month ? `${selectedPeriod.value.month.name} ${selectedPeriod.value.year.name}` : '';
+
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet('Data');
+
+    const titleRow = [`Perhitungan Indikator Kab/Kota ${periodString}`];
+    const headerRow1 = ['Kab/Kota'];
+    const headerRow2 = [''];
+
+    exportIndicators.forEach(ind => {
+        headerRow1.push(ind.short_name || ind.name);
+        for (let i = 0; i < ind.categories.length; i++) {
+            headerRow1.push('');
+        }
+
+        ind.categories.forEach(cat => {
+            headerRow2.push(cat.name || cat.short_name);
+        });
+        headerRow2.push('Total');
+    });
+
+    worksheet.addRow(titleRow);
+    worksheet.addRow(headerRow1);
+    worksheet.addRow(headerRow2);
+
+    const totalCols = headerRow2.length;
+
+    worksheet.mergeCells(1, 1, 1, totalCols);
+    worksheet.mergeCells(2, 1, 3, 1);
+
+    let currentCol = 2;
+    exportIndicators.forEach(ind => {
+        const spanCount = ind.categories.length + 1;
+        if (spanCount > 1) {
+            worksheet.mergeCells(2, currentCol, 2, currentCol + spanCount - 1);
+        }
+        currentCol += spanCount;
+    });
+
+    data.forEach(record => {
+        const row = [`[${record.regency?.long_code}] ${toTitleCase(record.regency?.name || '')}`];
+
+        exportIndicators.forEach(ind => {
+            let totalNum = 0;
+            let totalDen = 0;
+
+            ind.categories.forEach(cat => {
+                const key = `${ind.id}_${cat.id}`;
+                const val = record.values?.[key];
+                
+                if (val && val.den > 0) {
+                    row.push(Number(((val.num / val.den) * ind.scale_factor).toFixed(2)));
+                    totalNum += val.num;
+                    totalDen += val.den;
+                } else {
+                    row.push('-');
+                }
+            });
+
+            if (totalDen > 0) {
+                row.push(Number(((totalNum / totalDen) * ind.scale_factor).toFixed(2)));
+            } else {
+                row.push('-');
+            }
+        });
+
+        worksheet.addRow(row);
+    });
+
+    for (let R = 1; R <= 3; ++R) {
+        worksheet.getRow(R).eachCell((cell) => {
+            cell.font = { bold: true, size: R === 1 ? 14 : 11 };
+            cell.alignment = { horizontal: 'center', vertical: 'middle' };
+        });
+    }
+
+    worksheet.getColumn(1).width = 25;
+    for (let c = 2; c <= totalCols; c++) {
+        worksheet.getColumn(c).width = 12;
+    }
+
+    const buffer = await workbook.xlsx.writeBuffer();
+
+    const blob = new Blob([buffer], {
+        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    });
+
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+
+    link.href = url;
+    link.download = `indikator_${periodString.replace(/\s+/g, '_')}.xlsx`;
+
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.URL.revokeObjectURL(url);
+};
+
+const handleDownload = async () => {
+    downloadLoading.value = true;
+    try {
+        await downloadExcel(filteredRows.value);
+    } finally {
+        downloadLoading.value = false;
+    }
+};
 
 </script>
 
@@ -383,6 +495,19 @@ function toTitleCase(str) {
                                     [{{ r.long_code }}] {{ toTitleCase(r.name) }}
                                 </a-select-option>
                             </a-select>
+                        </div>
+                        <div class="shrink-0 mt-0 flex items-center gap-2">
+                            <!-- <a-button size="small" type="default" title="Bagikan" shape="default">
+                                <template #icon>
+                                    <ShareAltOutlined />
+                                </template>
+                            </a-button> -->
+                            <a-button @click="handleDownload" size="small" :loading="downloadLoading" type="primary" title="Unduh"
+                                shape="default">
+                                <template #icon>
+                                    <DownloadOutlined />
+                                </template>
+                            </a-button>
                         </div>
                     </div>
                 </CardHeader>

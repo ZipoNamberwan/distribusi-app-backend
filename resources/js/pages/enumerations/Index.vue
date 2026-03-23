@@ -7,6 +7,8 @@ import { index as enumerationIndex } from '@/routes/enumeration/data';
 import { useAppearance } from '@/composables/useAppearance';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import EnumerationsMobile from '@/custom_components/mobile/EnumerationsMobile.vue';
+import { DownloadOutlined, ShareAltOutlined } from '@ant-design/icons-vue';
+import ExcelJS from 'exceljs';
 
 const props = defineProps({
     months: { type: Array, required: true, default: () => [] },
@@ -366,6 +368,129 @@ const filterRegencyFromData = () => {
     filteredRows.value = rows.value.filter((r) => selectedRegency.value.includes(r.regency?.id));
 };
 
+const downloadLoading = ref(false);
+
+const downloadExcel = async (data) => {
+    const periodString = selectedPeriod.value?.month ? `${selectedPeriod.value.month.name} ${selectedPeriod.value.year.name}` : '';
+
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet('Data');
+
+    const titleRow = [`Progress Pencacahan ${periodString}`];
+    const headerRow1 = ['Kab/Kota'];
+    const headerRow2 = [''];
+
+    parentColumn.forEach(parent => {
+        headerRow1.push(parent.title);
+        for (let i = 0; i < props.categories.length; i++) {
+            headerRow1.push('');
+        }
+        props.categories.forEach(cat => {
+            headerRow2.push(cat.name || cat.short_name);
+        });
+        headerRow2.push('Total');
+    });
+
+    worksheet.addRow(titleRow);
+    worksheet.addRow(headerRow1);
+    worksheet.addRow(headerRow2);
+
+    const totalCols = headerRow2.length;
+
+    worksheet.mergeCells(1, 1, 1, totalCols);
+    worksheet.mergeCells(2, 1, 3, 1);
+
+    let currentCol = 2;
+    parentColumn.forEach(parent => {
+        const spanCount = props.categories.length + 1;
+        if (spanCount > 1) {
+            worksheet.mergeCells(2, currentCol, 2, currentCol + spanCount - 1);
+        }
+        currentCol += spanCount;
+    });
+
+    data.forEach(record => {
+        const row = [`[${record.regency?.long_code}] ${toTitleCase(record.regency?.name || '')}`];
+
+        parentColumn.forEach(parent => {
+            let totalRealization = 0;
+            let totalTarget = 0;
+            let totalOther = 0;
+
+            props.categories.forEach(cat => {
+                if (parent.key === 'percentage') {
+                    const realization = record.realization?.[cat.id] ?? 0;
+                    const target = record.target?.[cat.id] ?? 0;
+                    totalRealization += realization;
+                    totalTarget += target;
+
+                    const percentage = target > 0 ? (realization / target) * 100 : null;
+                    if (percentage !== null) {
+                        row.push(Number(percentage.toFixed(2)));
+                    } else {
+                        row.push('-');
+                    }
+                } else {
+                    const val = record[parent.key]?.[cat.id] ?? 0;
+                    totalOther += val;
+                    row.push(val);
+                }
+            });
+
+            if (parent.key === 'percentage') {
+                const percentage = totalTarget > 0 ? (totalRealization / totalTarget) * 100 : null;
+                if (percentage !== null) {
+                    row.push(Number(percentage.toFixed(2)));
+                } else {
+                    row.push('-');
+                }
+            } else {
+                row.push(totalOther);
+            }
+        });
+
+        worksheet.addRow(row);
+    });
+
+    for (let R = 1; R <= 3; ++R) {
+        worksheet.getRow(R).eachCell((cell) => {
+            cell.font = { bold: true, size: R === 1 ? 14 : 11 };
+            cell.alignment = { horizontal: 'center', vertical: 'middle' };
+        });
+    }
+
+    worksheet.getColumn(1).width = 25;
+    for (let c = 2; c <= totalCols; c++) {
+        worksheet.getColumn(c).width = 12;
+    }
+
+    const buffer = await workbook.xlsx.writeBuffer();
+
+    const blob = new Blob([buffer], {
+        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    });
+
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+
+    link.href = url;
+    link.download = `progress_pencacahan_${periodString.replace(/\s+/g, '_')}.xlsx`;
+
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.URL.revokeObjectURL(url);
+};
+
+const handleDownload = async () => {
+    downloadLoading.value = true;
+    try {
+        await downloadExcel(filteredRows.value);
+    } finally {
+        downloadLoading.value = false;
+    }
+};
+
 function toTitleCase(str) {
     return str
         .toLowerCase()
@@ -424,6 +549,19 @@ function toTitleCase(str) {
                                     [{{ r.long_code }}] {{ toTitleCase(r.name) }}
                                 </a-select-option>
                             </a-select>
+                        </div>
+                        <div class="shrink-0 mt-0 flex items-center gap-2">
+                            <!-- <a-button size="small" type="default" title="Bagikan" shape="default">
+                                <template #icon>
+                                    <ShareAltOutlined />
+                                </template>
+                            </a-button> -->
+                            <a-button @click="handleDownload" size="small" :loading="downloadLoading" type="primary" title="Unduh"
+                                shape="default">
+                                <template #icon>
+                                    <DownloadOutlined />
+                                </template>
+                            </a-button>
                         </div>
                     </div>
 

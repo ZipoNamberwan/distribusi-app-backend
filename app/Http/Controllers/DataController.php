@@ -220,7 +220,7 @@ class DataController extends Controller
         }
 
         $months = Month::all();
-        $years = Year::all();
+        $years = Year::where('name', '<=', (string) now()->year)->get();
         return Inertia::render('data/Index', [
             'regencies' => $regencies,
             'months' => $months,
