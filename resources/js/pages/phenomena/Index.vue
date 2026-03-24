@@ -239,7 +239,7 @@ onMounted(() => {
                                 </a-select-option>
                             </a-select>
                         </a-col>
-                        <a-col :xs="24" :sm="12" :md="8" :lg="5">
+                        <a-col :xs="24" :sm="12" :md="8" :lg="5" v-if="roles.includes('adminprov')">
                             <a-select max-tag-count="responsive" mode="multiple" v-model:value="selectedRegency"
                                 placeholder="Semua Kabupaten/Kota" allow-clear class="w-full"
                                 @change="filterRegencyFromData()" :filter-option="filterRegency">
@@ -248,11 +248,11 @@ onMounted(() => {
                                 </a-select-option>
                             </a-select>
                         </a-col>
-                        <a-col :xs="24" :sm="12" :md="8" :lg="5">
+                        <a-col :xs="24" :sm="12" :md="8" :lg="5" v-if="roles.includes('adminprov')">
                             <a-input @change="onSearch" allow-clear v-model:value="searchKeyword" placeholder="Cari..."
                                 class="w-full" />
                         </a-col>
-                        <a-col :xs="24" :sm="24" :md="12" :lg="12">
+                        <a-col :xs="24" :sm="24" :md="12" :lg="12" v-if="roles.includes('adminprov')">
                             <a-radio-group v-model:value="statusFilter" button-style="solid"
                                 @change="handleStatusFilter">
                                 <a-radio-button :value="null">Semua</a-radio-button>
