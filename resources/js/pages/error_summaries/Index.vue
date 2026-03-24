@@ -207,7 +207,7 @@ const downloadExcel = async (data) => {
     props.errors.forEach(err => {
         headerRow1.push(err.name);
         for (let i = 0; i < props.categories.length; i++) {
-            headerRow1.push(''); 
+            headerRow1.push('');
         }
         props.categories.forEach(cat => {
             headerRow2.push(cat.name || cat.short_name);
@@ -226,7 +226,7 @@ const downloadExcel = async (data) => {
 
     let currentCol = 2;
     props.errors.forEach(err => {
-        const spanCount = props.categories.length + 1; 
+        const spanCount = props.categories.length + 1;
         if (spanCount > 1) {
             worksheet.mergeCells(2, currentCol, 2, currentCol + spanCount - 1);
         }
@@ -352,9 +352,9 @@ function toTitleCase(str) {
                                 <template #icon>
                                     <ShareAltOutlined />
                                 </template>
-                            </a-button> -->
-                            <a-button @click="handleDownload" size="small" :loading="downloadLoading" type="primary" title="Unduh"
-                                shape="default">
+</a-button> -->
+                            <a-button @click="handleDownload" size="small" :loading="downloadLoading" type="primary"
+                                title="Unduh" shape="default">
                                 <template #icon>
                                     <DownloadOutlined />
                                 </template>
@@ -363,7 +363,7 @@ function toTitleCase(str) {
                     </div>
                 </CardHeader>
 
-                <CardContent class="p-0 sm:px-6 sm:pb-6">
+                <CardContent class="p-0 sm:px-4 sm:pb-6">
                     <!-- Mobile Card View (visible only on mobile) -->
                     <div class="sm:hidden">
                         <ErrorSummariesMobile :data="filteredRows" :loading="loading" :card-config="mobileCardConfig"

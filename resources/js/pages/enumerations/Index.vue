@@ -567,7 +567,7 @@ function toTitleCase(str) {
 
                 </CardHeader>
 
-                <CardContent class="p-0 sm:px-6 sm:pb-6">
+                <CardContent class="p-0 sm:px-4 sm:pb-6">
                     <!-- Mobile Card View (visible only on mobile) -->
                     <div class="sm:hidden">
                         <EnumerationsMobile :data="filteredRows" :loading="loading" :card-config="mobileCardConfig"
