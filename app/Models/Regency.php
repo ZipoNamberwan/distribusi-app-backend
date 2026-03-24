@@ -16,4 +16,9 @@ class Regency extends Model
     {
         return $this->hasMany(Regency::class, 'parent_id');
     }
+
+    public function phenomenas()
+    {
+        return $this->hasMany(Phenomena::class, 'regency_id');
+    }
 }

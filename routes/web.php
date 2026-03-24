@@ -66,6 +66,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('approve', [ConfirmationController::class, 'approve'])->name('confirmation.approve.store');
 
     Route::get('phenomena', [PhenomenaController::class, 'showPhenomenaPage'])->name('phenomena.page.index');
+    Route::get('phenomena/data', [PhenomenaController::class, 'getPhenomenaData'])->name('phenomena.data.index');
+    Route::post('phenomena', [PhenomenaController::class, 'storePhenomena'])->name('phenomena.store.store');
+
+
 });
 
 require __DIR__ . '/settings.php';
