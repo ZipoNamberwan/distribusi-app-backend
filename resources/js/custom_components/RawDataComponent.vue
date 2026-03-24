@@ -1,10 +1,13 @@
 <script setup lang="js">
+import { SearchOutlined, ClearOutlined } from '@ant-design/icons-vue';
+import { useMediaQuery } from '@vueuse/core';
+import moment from 'moment';
 import { ref, computed, watch, h } from 'vue';
 import { usePagination } from 'vue-request';
-import { index as rawDataIndex } from '@/routes/data/raw';
-import moment from 'moment';
-import { SearchOutlined, ClearOutlined } from '@ant-design/icons-vue';
 import { useAppearance } from '@/composables/useAppearance';
+import { index as rawDataIndex } from '@/routes/data/raw';
+
+const isMobile = useMediaQuery('(max-width: 767px)');
 
 const lastParams = ref({});
 const searchInput = ref();
@@ -57,6 +60,14 @@ const filteredColumns = computed(() => {
     return columns.filter(col => {
         if (!col.group) return true
         return selectedView.value.includes(col.group)
+    }).map(col => {
+        if (col.dataIndex === 'nama_komersial' || col.key === 'regency') {
+            return {
+                ...col,
+                fixed: isMobile.value ? false : 'left'
+            }
+        }
+        return col
     })
 })
 
