@@ -14,21 +14,18 @@ use App\Http\Controllers\TargetSampleController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\WebAdminController;
 use Illuminate\Support\Facades\Route;
-use Laravel\Fortify\Features;
 
-Route::inertia('/', 'Welcome', [
-    'canRegister' => Features::enabled(Features::registration()),
-])->name('home');
+Route::redirect('/', '/dashboard')->name('home');
 
-Route::get('/sso/callback', [SsoController::class, 'callback'])->name('sso.callback.index');
-Route::get('/sso/login', [SsoController::class, 'redirect'])->name('sso.login.index');
-Route::get('/webadmin', [WebAdminController::class, 'login'])->name('webadmin.login.index');
-Route::get('/majapahit/callback', [MajapahitController::class, 'callback'])->name('majapahit.callback.index');
-Route::get('/majapahit/login', [MajapahitController::class, 'redirect'])->name('majapahit.login.index');
+Route::get('sso/callback', [SsoController::class, 'callback'])->name('sso.callback.index');
+Route::get('sso/login', [SsoController::class, 'redirect'])->name('sso.login.index');
+Route::get('webadmin', [WebAdminController::class, 'login'])->name('webadmin.login.index');
+Route::get('majapahit/callback', [MajapahitController::class, 'callback'])->name('majapahit.callback.index');
+Route::get('majapahit/login', [MajapahitController::class, 'redirect'])->name('majapahit.login.index');
 
 Route::middleware(['auth', 'verified'])->group(function () {
 
-    Route::get('/sso/logout', [SsoController::class, 'logout'])->name('sso.logout.index');
+    Route::get('sso/logout', [SsoController::class, 'logout'])->name('sso.logout.index');
 
     Route::get('dashboard', [DataController::class, 'showDashboard'])->name('data.dashboard.index');
 

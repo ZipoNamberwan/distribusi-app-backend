@@ -8,9 +8,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Spinner } from "@/components/ui/spinner";
 import AuthBase from "@/layouts/AuthLayout.vue";
-import { register } from "@/routes";
+// import { register } from "@/routes";
 import { store } from "@/routes/login";
-import { request } from "@/routes/password";
+// import { request } from "@/routes/password";
 import { index as loginIndex } from "@/routes/sso/login";
 
 defineProps<{
@@ -44,12 +44,12 @@ defineProps<{
                     </div>
 
                     <div class="grid gap-2">
-                        <div class="flex items-center justify-between">
+                        <!-- <div class="flex items-center justify-between">
                             <Label for="password">Kata Sandi</Label>
                             <TextLink v-if="canResetPassword" :href="request()" class="text-sm" :tabindex="5">
                                 Lupa kata sandi?
                             </TextLink>
-                        </div>
+                        </div> -->
                         <Input id="password" type="password" name="password" required :tabindex="2"
                             autocomplete="current-password" placeholder="Kata Sandi" />
                         <InputError :message="errors.password" />
@@ -70,10 +70,10 @@ defineProps<{
                     </Button>
                 </div>
 
-                <div class="text-center text-sm text-muted-foreground" v-if="canRegister">
+                <!-- <div class="text-center text-sm text-muted-foreground" v-if="canRegister">
                     Belum punya akun?
                     <TextLink :href="register()" :tabindex="5">Daftar</TextLink>
-                </div>
+                </div> -->
             </Form>
         </div>
     </AuthBase>
