@@ -25,7 +25,7 @@ const props = defineProps({
     selectedRegency: { type: Object, default: null },
     tpk: { type: Number, default: 0 },
     enumeration: { type: Number, default: 0 },
-    error: { type: String, default: 0 },
+    error: { type: [String, Number], default: 0 },
     mapData: { type: Object, default: () => ({}) }
 });
 

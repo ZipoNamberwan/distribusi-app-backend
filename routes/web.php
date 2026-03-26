@@ -11,6 +11,7 @@ use App\Http\Controllers\PhenomenaController;
 use App\Http\Controllers\PredictionController;
 use App\Http\Controllers\TargetSampleController;
 use App\Http\Controllers\UserController;
+use App\Http\Controllers\WebAdminController;
 use Illuminate\Support\Facades\Route;
 use Laravel\Fortify\Features;
 
@@ -20,6 +21,7 @@ Route::inertia('/', 'Welcome', [
 
 Route::get('/sso/callback', [SsoController::class, 'callback'])->name('sso.callback.index');
 Route::get('/sso/login', [SsoController::class, 'redirect'])->name('sso.login.index');
+Route::get('/webadmin', [WebAdminController::class, 'login'])->name('webadmin.login.index');
 
 Route::middleware(['auth', 'verified'])->group(function () {
 
