@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\SsoController;
 use App\Http\Controllers\ConfirmationController;
 use App\Http\Controllers\DataController;
 use App\Http\Controllers\EnumerationController;
@@ -16,6 +17,9 @@ use Laravel\Fortify\Features;
 Route::inertia('/', 'Welcome', [
     'canRegister' => Features::enabled(Features::registration()),
 ])->name('home');
+
+Route::get('/sso/callback', [SsoController::class, 'callback'])->name('sso.callback');
+Route::get('/sso/login', [SsoController::class, 'redirect'])->name('sso.login');
 
 Route::middleware(['auth', 'verified'])->group(function () {
 
@@ -68,8 +72,6 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('phenomena', [PhenomenaController::class, 'showPhenomenaPage'])->name('phenomena.page.index');
     Route::get('phenomena/data', [PhenomenaController::class, 'getPhenomenaData'])->name('phenomena.data.index');
     Route::post('phenomena', [PhenomenaController::class, 'storePhenomena'])->name('phenomena.store.store');
-
-
 });
 
 require __DIR__ . '/settings.php';

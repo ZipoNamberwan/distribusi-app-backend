@@ -40,4 +40,12 @@ return [
         'range' => env('SPREADSHEET_RANGE', 'INPUT!A1:AE5000'),
     ],
 
+    'keycloak' => [
+        'url' => env('SSO_URL'),
+        'realm' => env('SSO_REALM'),
+        'scope' => env('SSO_SCOPE'),
+
+        'client_id' => env('CLIENT_ID'),
+        'client_secret' => env('CLIENT_SECRET'),
+    ],
 ];
