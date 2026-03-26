@@ -1,6 +1,6 @@
-import { createInertiaApp, router } from '@inertiajs/vue3';
+import { createInertiaApp, /* router */ } from '@inertiajs/vue3';
 import Antd from 'ant-design-vue';
-import axios from 'axios';
+// import axios from 'axios';
 import { resolvePageComponent } from 'laravel-vite-plugin/inertia-helpers';
 import type { DefineComponent } from 'vue';
 import { createApp, h } from 'vue';
@@ -33,9 +33,9 @@ initializeTheme();
 
 // Outsmart the F5 Proxy: Read the CSRF token directly from Inertia's page props
 // rather than relying on the cookie. This updates dynamically on every page load/change.
-router.on('navigate', (event) => {
-    const csrfToken = event.detail.page.props.csrf_token as string;
-    if (csrfToken) {
-        axios.defaults.headers.common['X-CSRF-TOKEN'] = csrfToken;
-    }
-});
+// router.on('navigate', (event) => {
+//     const csrfToken = event.detail.page.props.csrf_token as string;
+//     if (csrfToken) {
+//         axios.defaults.headers.common['X-CSRF-TOKEN'] = csrfToken;
+//     }
+// });
