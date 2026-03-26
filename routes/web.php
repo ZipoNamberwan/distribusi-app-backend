@@ -15,6 +15,15 @@ use App\Http\Controllers\UserController;
 use App\Http\Controllers\WebAdminController;
 use Illuminate\Support\Facades\Route;
 
+Route::get('/debug-session-config', function () {
+    return [
+        'session_cookie' => config('session.cookie'),
+        'session_domain' => config('session.domain'),
+        'session_secure' => config('session.secure'),
+        'same_site' => config('session.same_site'),
+    ];
+});
+
 Route::redirect('/', '/dashboard')->name('home');
 
 Route::get('sso/callback', [SsoController::class, 'callback'])->name('sso.callback.index');

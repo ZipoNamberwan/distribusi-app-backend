@@ -24,11 +24,13 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        $this->configureDefaults();
+        // $this->configureDefaults();
         // Force HTTPS in production
         if ($this->app->environment('production')) {
             URL::forceScheme('https');
-        }
+            // 🔥 FORCE request as secure
+            request()->server->set('HTTPS', 'on');
+        }   
     }
 
     /**

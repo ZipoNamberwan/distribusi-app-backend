@@ -6,27 +6,8 @@ import { createApp, h } from 'vue';
 import '../css/app.css';
 import 'ant-design-vue/dist/reset.css';
 import { initializeTheme } from '@/composables/useAppearance';
-import axios from 'axios';
 
 const appName = import.meta.env.VITE_APP_NAME || 'Laravel';
-
-// ===== ADD THIS SECTION =====
-axios.defaults.headers.common['X-Requested-With'] = 'XMLHttpRequest';
-axios.defaults.withCredentials = true;
-
-function getCookie(name: string): string | undefined {
-    const value = `; ${document.cookie}`;
-    const parts = value.split(`; ${name}=`);
-    if (parts.length === 2) {
-        return parts.pop()?.split(';').shift();
-    }
-}
-
-const xsrfToken = getCookie('XSRF-TOKEN');
-if (xsrfToken) {
-    axios.defaults.headers.common['X-XSRF-TOKEN'] = decodeURIComponent(xsrfToken);
-}
-// ===== END OF NEW SECTION =====
 
 createInertiaApp({
     title: (title) => (title ? `${title} - ${appName}` : appName),
