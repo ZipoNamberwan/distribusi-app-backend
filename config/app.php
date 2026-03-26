@@ -123,4 +123,6 @@ return [
         'store' => env('APP_MAINTENANCE_STORE', 'database'),
     ],
 
+    'majapahit_key' => env('MAJAPAHIT_KEY', 'majapahit'),
+    'majapahit_url' => env('MAJAPAHIT_URL', 'http://localhost'),
 ];

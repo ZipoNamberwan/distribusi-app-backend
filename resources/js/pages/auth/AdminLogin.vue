@@ -21,7 +21,7 @@ defineProps<{
 </script>
 
 <template>
-    <AuthBase title="Log in to your account" description="Sign in securely with Single Sign-On">
+    <AuthBase title="Masuk ke akun Anda" description="Masuk dengan aman menggunakan Single Sign-On">
 
         <Head title="Log in" />
 
@@ -37,28 +37,28 @@ defineProps<{
                 class="flex flex-col gap-6">
                 <div class="grid gap-6">
                     <div class="grid gap-2">
-                        <Label for="email">Email address</Label>
+                        <Label for="email">Alamat Email</Label>
                         <Input id="email" type="email" name="email" required autofocus :tabindex="1"
-                            autocomplete="email" placeholder="email@example.com" />
+                            autocomplete="email" placeholder="email@contoh.com" />
                         <InputError :message="errors.email" />
                     </div>
 
                     <div class="grid gap-2">
                         <div class="flex items-center justify-between">
-                            <Label for="password">Password</Label>
+                            <Label for="password">Kata Sandi</Label>
                             <TextLink v-if="canResetPassword" :href="request()" class="text-sm" :tabindex="5">
-                                Forgot password?
+                                Lupa kata sandi?
                             </TextLink>
                         </div>
                         <Input id="password" type="password" name="password" required :tabindex="2"
-                            autocomplete="current-password" placeholder="Password" />
+                            autocomplete="current-password" placeholder="Kata Sandi" />
                         <InputError :message="errors.password" />
                     </div>
 
                     <div class="flex items-center justify-between">
                         <Label for="remember" class="flex items-center space-x-3">
                             <Checkbox id="remember" name="remember" :tabindex="3" />
-                            <span>Remember me</span>
+                            <span>Ingat saya</span>
                         </Label>
                     </div>
 
@@ -66,13 +66,13 @@ defineProps<{
                         class="mt-6 w-full shadow-lg shadow-primary/20 text-base h-11 font-semibold transition-all hover:shadow-primary/30"
                         :tabindex="4" :disabled="processing" data-test="login-button">
                         <Spinner v-if="processing" class="mr-2" />
-                        Log in
+                        Masuk
                     </Button>
                 </div>
 
                 <div class="text-center text-sm text-muted-foreground" v-if="canRegister">
-                    Don't have an account?
-                    <TextLink :href="register()" :tabindex="5">Sign up</TextLink>
+                    Belum punya akun?
+                    <TextLink :href="register()" :tabindex="5">Daftar</TextLink>
                 </div>
             </Form>
         </div>

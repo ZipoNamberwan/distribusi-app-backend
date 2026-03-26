@@ -115,15 +115,15 @@
     --chart-4: hsl(43 74% 66%);
     --chart-5: hsl(27 87% 67%);
     --radius: 0.5rem;
-    --sidebar-background: hsl(210 100% 98%); /* very light blue */
-    --sidebar-foreground: hsl(210 40% 25%); /* dark blue for text */
-    --sidebar-primary: hsl(210 100% 50%); /* primary blue */
-    --sidebar-primary-foreground: hsl(0 0% 98%); /* white */
-    --sidebar-accent: hsl(210 100% 95%); /* lighter blue accent */
-    --sidebar-accent-foreground: hsl(210 40% 35%); /* medium blue for accent text */
-    --sidebar-border: hsl(210 60% 85%); /* blue border */
+    --sidebar-background: hsl(221 83% 53%); /* fallback blue */
+    --sidebar-foreground: hsl(0 0% 98%); /* white text */
+    --sidebar-primary: hsl(0 0% 100%); /* primary white */
+    --sidebar-primary-foreground: hsl(221 83% 53%); /* blue on white */
+    --sidebar-accent: hsl(0 0% 100% / 0.15); /* translucent white hover */
+    --sidebar-accent-foreground: hsl(0 0% 98%); /* white hover text */
+    --sidebar-border: hsl(0 0% 100% / 0.1); /* light translucent border */
     --sidebar-ring: hsl(210 100% 60%); /* blue ring */
-    --sidebar: hsl(210 100% 98%); /* very light blue */
+    --sidebar: hsl(221 83% 53%);
 }
 
 .dark {
@@ -151,15 +151,15 @@
     --chart-3: hsl(30 80% 55%);
     --chart-4: hsl(280 65% 60%);
     --chart-5: hsl(340 75% 55%);
-    --sidebar-background: hsl(210 40% 12%); /* dark blue background */
-    --sidebar-foreground: hsl(210 60% 90%); /* light blue text */
-    --sidebar-primary: hsl(210 100% 60%); /* blue primary */
-    --sidebar-primary-foreground: hsl(0 0% 100%); /* white */
-    --sidebar-accent: hsl(210 60% 20%); /* blue accent */
-    --sidebar-accent-foreground: hsl(210 60% 90%); /* light blue accent text */
-    --sidebar-border: hsl(210 40% 25%); /* blue border */
+    --sidebar-background: hsl(222 47% 11%); /* fallback dark blue */
+    --sidebar-foreground: hsl(0 0% 98%); /* white text */
+    --sidebar-primary: hsl(0 0% 100%); /* primary white */
+    --sidebar-primary-foreground: hsl(222 47% 11%); /* dark on white */
+    --sidebar-accent: hsl(0 0% 100% / 0.15); /* translucent white hover */
+    --sidebar-accent-foreground: hsl(0 0% 98%); /* white hover text */
+    --sidebar-border: hsl(0 0% 100% / 0.1); /* light translucent border */
     --sidebar-ring: hsl(210 100% 70%); /* blue ring */
-    --sidebar: hsl(210 40% 12%); /* dark blue background */
+    --sidebar: hsl(222 47% 11%);
 }
 
 @layer base {

@@ -5,6 +5,7 @@ import { Sheet, SheetContent } from '@/components/ui/sheet'
 import SheetDescription from '@/components/ui/sheet/SheetDescription.vue'
 import SheetHeader from '@/components/ui/sheet/SheetHeader.vue'
 import SheetTitle from '@/components/ui/sheet/SheetTitle.vue'
+import BubbleAnimation from '@/components/BubbleAnimation.vue'
 import { SIDEBAR_WIDTH_MOBILE, useSidebar } from "./utils"
 
 defineOptions({
@@ -24,9 +25,11 @@ const { isMobile, state, openMobile, setOpenMobile } = useSidebar()
   <div
     v-if="collapsible === 'none'"
     data-slot="sidebar"
-    :class="cn('bg-sidebar text-sidebar-foreground flex h-full w-(--sidebar-width) flex-col', props.class)"
+    :class="cn('bg-sidebar relative text-sidebar-foreground flex h-full w-(--sidebar-width) flex-col overflow-hidden', props.class)"
     v-bind="$attrs"
   >
+    <div class="absolute inset-0 bg-gradient-to-br from-blue-900 via-blue-700 to-blue-500 -z-10 bg-cover bg-center"></div>
+    <BubbleAnimation :count="8" class="z-0" />
     <slot />
   </div>
 
@@ -36,16 +39,18 @@ const { isMobile, state, openMobile, setOpenMobile } = useSidebar()
       data-slot="sidebar"
       data-mobile="true"
       :side="side"
-      class="bg-sidebar text-sidebar-foreground w-(--sidebar-width) p-0 [&>button]:hidden"
+      class="bg-sidebar relative text-sidebar-foreground w-(--sidebar-width) p-0 [&>button]:hidden overflow-hidden"
       :style="{
         '--sidebar-width': SIDEBAR_WIDTH_MOBILE,
       }"
     >
+      <div class="absolute inset-0 bg-gradient-to-br from-blue-900 via-blue-700 to-blue-500 -z-10 bg-cover bg-center"></div>
+      <BubbleAnimation :count="8" class="z-0" />
       <SheetHeader class="sr-only">
         <SheetTitle>Sidebar</SheetTitle>
         <SheetDescription>Displays the mobile sidebar.</SheetDescription>
       </SheetHeader>
-      <div class="flex h-full w-full flex-col">
+      <div class="flex h-full w-full flex-col relative z-10">
         <slot />
       </div>
     </SheetContent>
@@ -87,9 +92,13 @@ const { isMobile, state, openMobile, setOpenMobile } = useSidebar()
     >
       <div
         data-sidebar="sidebar"
-        class="bg-sidebar group-data-[variant=floating]:border-sidebar-border flex h-full w-full flex-col group-data-[variant=floating]:rounded-lg group-data-[variant=floating]:border group-data-[variant=floating]:shadow-sm"
+        class="bg-sidebar relative group-data-[variant=floating]:border-sidebar-border flex h-full w-full flex-col overflow-hidden group-data-[variant=floating]:rounded-lg group-data-[variant=floating]:border group-data-[variant=floating]:shadow-sm"
       >
-        <slot />
+        <div class="absolute inset-0 bg-gradient-to-br from-blue-900 via-blue-700 to-blue-500 -z-10 bg-cover bg-center"></div>
+        <BubbleAnimation :count="8" class="z-0" />
+        <div class="relative z-10 flex flex-col h-full w-full">
+            <slot />
+        </div>
       </div>
     </div>
   </div>

@@ -1,14 +1,15 @@
 <?php
 
-use App\Http\Controllers\SsoController;
 use App\Http\Controllers\ConfirmationController;
 use App\Http\Controllers\DataController;
 use App\Http\Controllers\EnumerationController;
 use App\Http\Controllers\ErrorSummaryController;
 use App\Http\Controllers\FinalNumberController;
 use App\Http\Controllers\InputController;
+use App\Http\Controllers\MajapahitController;
 use App\Http\Controllers\PhenomenaController;
 use App\Http\Controllers\PredictionController;
+use App\Http\Controllers\SsoController;
 use App\Http\Controllers\TargetSampleController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\WebAdminController;
@@ -22,6 +23,8 @@ Route::inertia('/', 'Welcome', [
 Route::get('/sso/callback', [SsoController::class, 'callback'])->name('sso.callback.index');
 Route::get('/sso/login', [SsoController::class, 'redirect'])->name('sso.login.index');
 Route::get('/webadmin', [WebAdminController::class, 'login'])->name('webadmin.login.index');
+Route::get('/majapahit/callback', [MajapahitController::class, 'callback'])->name('majapahit.callback.index');
+Route::get('/majapahit/login', [MajapahitController::class, 'redirect'])->name('majapahit.login.index');
 
 Route::middleware(['auth', 'verified'])->group(function () {
 
@@ -35,7 +38,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     Route::get('map', [DataController::class, 'showMap'])->name('data.map.index');
 
-    //group route only for adminprov
+    // group route only for adminprov
     Route::middleware('role:adminprov')->group(function () {
         Route::get('input/upload', [InputController::class, 'showUploadForm'])->name('upload.index');
         Route::get('input/template', [InputController::class, 'downloadInputTemplate'])->name('upload.template.index');
@@ -78,4 +81,4 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('phenomena', [PhenomenaController::class, 'storePhenomena'])->name('phenomena.store.store');
 });
 
-require __DIR__ . '/settings.php';
+require __DIR__.'/settings.php';

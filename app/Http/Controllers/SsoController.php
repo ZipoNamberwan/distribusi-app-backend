@@ -1,14 +1,15 @@
 <?php
+
 // app/Http/Controllers/Auth/SsoController.php
 
 namespace App\Http\Controllers;
 
-use App\Http\Controllers\Controller;
 use App\Models\User;
 use App\Services\KeycloakProvider;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Session;
+use Inertia\Inertia;
 
 class SsoController extends Controller
 {
@@ -28,20 +29,20 @@ class SsoController extends Controller
         $provider = KeycloakProvider::make();
 
         // CSRF protection
-        if (!$request->has('state') || $request->state !== Session::get('oauth2state')) {
+        if (! $request->has('state') || $request->state !== Session::get('oauth2state')) {
             Session::forget('oauth2state');
             abort(403, 'Invalid state');
         }
 
         try {
             $token = $provider->getAccessToken('authorization_code', [
-                'code' => $request->code
+                'code' => $request->code,
             ]);
         } catch (\Exception $e) {
-            return response()->json([
-                'error' => 'Gagal mendapatkan token',
-                'message' => $e->getMessage()
-            ], 500);
+            return Inertia::render('auth/Error', [
+                'error' => 'Gagal Mendapatkan Token',
+                'description' => $e->getMessage(),
+            ]);
         }
 
         try {
@@ -49,10 +50,11 @@ class SsoController extends Controller
             $data = $user->toArray();
 
             $user = User::where('email', $data['email'])->first();
-            if (!$user) {
-                return response()->json([
-                    'error' => 'User not registered'
-                ], 403);
+            if (! $user) {
+                return Inertia::render('auth/Error', [
+                    'error' => 'User Belum Terdaftar',
+                    'description' => 'Akun SSO Anda belum terdaftar di aplikasi ini.',
+                ]);
             } else {
                 // Update token
                 $user->update([
@@ -64,10 +66,10 @@ class SsoController extends Controller
                 return redirect()->route('data.dashboard.index');
             }
         } catch (\Exception $e) {
-            return response()->json([
-                'error' => 'Gagal ambil user',
-                'message' => $e->getMessage()
-            ], 500);
+            return Inertia::render('auth/Error', [
+                'error' => 'Gagal Mengambil Data User',
+                'description' => $e->getMessage(),
+            ]);
         }
     }
 
