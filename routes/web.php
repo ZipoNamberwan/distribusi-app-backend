@@ -18,10 +18,12 @@ Route::inertia('/', 'Welcome', [
     'canRegister' => Features::enabled(Features::registration()),
 ])->name('home');
 
-Route::get('/sso/callback', [SsoController::class, 'callback'])->name('sso.callback');
-Route::get('/sso/login', [SsoController::class, 'redirect'])->name('sso.login');
+Route::get('/sso/callback', [SsoController::class, 'callback'])->name('sso.callback.index');
+Route::get('/sso/login', [SsoController::class, 'redirect'])->name('sso.login.index');
 
 Route::middleware(['auth', 'verified'])->group(function () {
+
+    Route::get('/sso/logout', [SsoController::class, 'logout'])->name('sso.logout.index');
 
     Route::get('dashboard', [DataController::class, 'showDashboard'])->name('data.dashboard.index');
 

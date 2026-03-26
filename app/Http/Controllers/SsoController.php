@@ -4,8 +4,10 @@
 namespace App\Http\Controllers;
 
 use App\Http\Controllers\Controller;
+use App\Models\User;
 use App\Services\KeycloakProvider;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Session;
 
 class SsoController extends Controller
@@ -46,26 +48,42 @@ class SsoController extends Controller
             $user = $provider->getResourceOwner($token);
             $data = $user->toArray();
 
-            // 🔥 Mapping like your original code
-            return response()->json([
-                'nama' => $data['name'] ?? null,
-                'email' => $data['email'] ?? null,
-                'username' => $data['preferred_username'] ?? null,
-                'nip' => $data['nip'] ?? null,
-                'nip_baru' => $data['nip_baru'] ?? null,
-                'kode_organisasi' => $data['kode_organisasi'] ?? null,
-                'kode_provinsi' => $data['kode_provinsi'] ?? null,
-                'kode_kabupaten' => $data['kode_kabupaten'] ?? null,
-                'jabatan' => $data['jabatan'] ?? null,
-                'golongan' => $data['golongan'] ?? null,
-                'foto' => $data['url_foto'] ?? null,
-                'access_token' => $token->getToken(),
-            ]);
+            $user = User::where('email', $data['email'])->first();
+            if (!$user) {
+                return response()->json([
+                    'error' => 'User not registered'
+                ], 403);
+            } else {
+                // Update token
+                $user->update([
+                    'name' => $data['name'] ?? $user->name,
+                ]);
+
+                Auth::login($user);
+
+                return redirect()->route('data.dashboard.index');
+            }
         } catch (\Exception $e) {
             return response()->json([
                 'error' => 'Gagal ambil user',
                 'message' => $e->getMessage()
             ], 500);
         }
+    }
+
+    public function logout(Request $request)
+    {
+        // 1. Logout from Laravel
+        Auth::logout();
+
+        $request->session()->invalidate();
+        $request->session()->regenerateToken();
+
+        // 2. Redirect to SSO logout
+        return redirect(
+            KeycloakProvider::getLogoutUrl([
+                'redirect_uri' => route('login'),
+            ])
+        );
     }
 }
