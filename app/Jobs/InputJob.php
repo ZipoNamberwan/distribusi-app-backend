@@ -15,10 +15,10 @@ use App\Models\Input;
 use App\Models\Month;
 use App\Models\Regency;
 use App\Models\SyncStatus;
+use App\Models\Year;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use PhpOffice\PhpSpreadsheet\Reader\IReadFilter;
@@ -44,25 +44,55 @@ class InputJob implements ShouldQueue
         ]);
     }
 
+    private ?array $categoriesCache = null;
+
+    private ?int $provinceIdCache = null;
+
+    private function getCategory(string $code): int
+    {
+        if ($this->categoriesCache === null) {
+            $this->categoriesCache = Category::query()->pluck('id', 'code')->all();
+            if (empty($this->categoriesCache)) {
+                throw new RuntimeException('Categories not found in database');
+            }
+        }
+
+        return (int) ($this->categoriesCache[$code] ?? 0);
+    }
+
+    private function getProvinceId(): int
+    {
+        if ($this->provinceIdCache === null) {
+            $this->provinceIdCache = (int) Regency::query()
+                ->where('level', 'province')
+                ->value('id');
+            if (! $this->provinceIdCache) {
+                throw new RuntimeException('Province not found in database');
+            }
+        }
+
+        return $this->provinceIdCache;
+    }
+
     public function handle(): void
     {
         $syncStatus = $this->status->fresh() ?? $this->status;
 
         try {
             if ($syncStatus->filename === null || trim((string) $syncStatus->filename) === '') {
-                throw new ImportException('Missing filename for sync status', 'File configuration missing');
+                throw new ImportException('Missing filename for sync status', 'Konfigurasi file tidak ditemukan');
             }
 
             $defaultUserId = (string) ($syncStatus->user_id ?? '');
             if (trim($defaultUserId) === '') {
-                throw new ImportException('Missing user_id for sync status', 'User configuration missing');
+                throw new ImportException('Missing user_id for sync status', 'Konfigurasi pengguna tidak ditemukan');
             }
 
-            $relativePath = 'uploads/' . ltrim((string) $syncStatus->filename, '/');
+            $relativePath = 'uploads/'.ltrim((string) $syncStatus->filename, '/');
 
             $extension = Str::lower((string) Str::of($syncStatus->filename)->afterLast('.'));
             if (! in_array($extension, ['csv', 'xlsx'], true)) {
-                throw new ImportException('Uploaded file must be a .csv or .xlsx', 'Uploaded file must be .csv or .xlsx');
+                throw new ImportException('Uploaded file must be a .csv or .xlsx', 'File yang diunggah harus berformat .csv atau .xlsx');
             }
 
             $imported = match ($extension) {
@@ -106,7 +136,7 @@ class InputJob implements ShouldQueue
     private function importInputXlsxFromStorage(string $relativePath, SyncStatus $syncStatus): int
     {
         if (! Storage::disk('local')->exists($relativePath)) {
-            throw new ImportException("XLSX file not found: {$relativePath}", 'Uploaded file could not be found');
+            throw new ImportException("XLSX file not found: {$relativePath}", 'File yang diunggah tidak ditemukan');
         }
 
         $absolutePath = Storage::disk('local')->path($relativePath);
@@ -119,23 +149,66 @@ class InputJob implements ShouldQueue
         $info = $reader->listWorksheetInfo($absolutePath);
         $first = $info[0] ?? null;
         if (! is_array($first)) {
-            throw new ImportException('Unable to read XLSX metadata', 'Could not read the uploaded file');
+            throw new ImportException('Unable to read XLSX metadata', 'Tidak dapat membaca file yang diunggah');
         }
 
         $totalRows = (int) ($first['totalRows'] ?? 0);
         $totalColumns = (int) ($first['totalColumns'] ?? 0);
 
         if ($totalRows < 1 || $totalColumns < 1) {
-            throw new ImportException('XLSX appears to be empty', 'The uploaded file is empty');
+            throw new ImportException('XLSX appears to be empty', 'File yang diunggah kosong');
         }
 
         $headersRow = $this->readXlsxRows($reader, $absolutePath, 1, 1);
         $rawHeaders = $headersRow[0] ?? [];
         if (! is_array($rawHeaders) || $rawHeaders === []) {
-            throw new ImportException('XLSX header row is missing', 'File has no header row');
+            throw new ImportException('XLSX header row is missing', 'File tidak memiliki baris header');
         }
 
-        $headers = array_map([$this, 'normalizeHeader'], array_map(fn($v) => $this->stringifyCellValue($v), $rawHeaders));
+        $headers = array_map([$this, 'normalizeHeader'], array_map(fn ($v) => $this->stringifyCellValue($v), $rawHeaders));
+
+        $bulanIndex = array_search('bulan', $headers, true);
+        $tahunIndex = array_search('tahun', $headers, true);
+
+        if ($bulanIndex === false || $tahunIndex === false) {
+            throw new ImportException('Missing bulan or tahun column in Excel', 'Kolom bulan atau tahun tidak ditemukan pada file Excel');
+        }
+
+        $targetMonth = Month::find($syncStatus->month_id);
+        $targetYear = Year::find($syncStatus->year_id);
+        $targetMonthCode = $targetMonth ? $targetMonth->code : null;
+        $targetYearName = $targetYear ? $targetYear->name : null;
+
+        $chunkSize = 1000;
+        $start = 2;
+        while ($start <= $totalRows) {
+            $end = min($totalRows, $start + $chunkSize - 1);
+            $rows = $this->readXlsxRows($reader, $absolutePath, $start, $end);
+
+            foreach ($rows as $row) {
+                if (! is_array($row) || empty($row)) {
+                    continue;
+                }
+
+                $rowBulan = trim($this->stringifyCellValue($row[$bulanIndex] ?? ''));
+                $rowTahun = trim($this->stringifyCellValue($row[$tahunIndex] ?? ''));
+
+                if ($rowBulan === '' && $rowTahun === '') {
+                    continue;
+                }
+
+                if (strlen($rowBulan) > 0) {
+                    $rowBulan = str_pad($rowBulan, 2, '0', STR_PAD_LEFT);
+                }
+
+                if ($rowBulan !== $targetMonthCode || $rowTahun !== $targetYearName) {
+                    unset($rows);
+                    throw new ImportException('Year and month not match between form and excel', 'Tahun dan bulan pada excel tidak sesuai dengan form');
+                }
+            }
+            unset($rows);
+            $start = $end + 1;
+        }
 
         $computedColumns = [
             'mkts',
@@ -178,6 +251,7 @@ class InputJob implements ShouldQueue
 
             if (isset($allowedLookup[$header])) {
                 $columnMap[$index] = $header;
+
                 continue;
             }
 
@@ -188,7 +262,7 @@ class InputJob implements ShouldQueue
         }
 
         if ($columnMap === []) {
-            throw new ImportException('No matching columns found between XLSX headers and input table', 'File headers do not match the expected format');
+            throw new ImportException('No matching columns found between XLSX headers and input table', 'Header file tidak sesuai dengan format yang diharapkan');
         }
 
         $maps = $this->buildInputForeignKeyMaps();
@@ -243,6 +317,14 @@ class InputJob implements ShouldQueue
 
         $fkCodeColumns = ['kode_kab' => true];
 
+        $paddingLengths = [
+            'bulan' => 2,
+            'kode_prov' => 2,
+            'kode_kab' => 2,
+            'kode_kec' => 3,
+            'kode_desa' => 3,
+        ];
+
         $chunkSize = 1000;
         $start = 2;
 
@@ -282,6 +364,7 @@ class InputJob implements ShouldQueue
                         if ($record[$column] !== null) {
                             $hasAnyValue = true;
                         }
+
                         continue;
                     }
 
@@ -290,20 +373,27 @@ class InputJob implements ShouldQueue
                         continue;
                     }
 
+                    if (isset($paddingLengths[$column])) {
+                        $string = str_pad($string, $paddingLengths[$column], '0', STR_PAD_LEFT);
+                    }
+
                     $hasAnyValue = true;
 
                     if (isset($fkCodeColumns[$column])) {
                         $record[$column] = $string;
+
                         continue;
                     }
 
                     if (in_array($column, $nullableIntegers, true)) {
                         $record[$column] = is_numeric($string) ? (int) $string : null;
+
                         continue;
                     }
 
                     if (in_array($column, $defaultZeroIntegers, true)) {
                         $record[$column] = is_numeric($string) ? (int) $string : 0;
+
                         continue;
                     }
 
@@ -322,12 +412,13 @@ class InputJob implements ShouldQueue
                 // rather than throwing immediately, so all bad codes surface at once.
                 $kodeKabCode = trim((string) ($record['kode_kab'] ?? ''));
                 if ($kodeKabCode === '') {
-                    throw new ImportException('Missing kode_kab at XLSX row ' . $rowNumber, 'Error at row ' . $rowNumber);
+                    throw new ImportException('Missing kode_kab at XLSX row '.$rowNumber, 'Kesalahan pada baris '.$rowNumber);
                 }
 
                 $kodeKabId = $this->resolveRegencyId($kodeKabCode, $maps['regencies']);
                 if ($kodeKabId === null) {
                     $missingRegencies[$kodeKabCode] = true;
+
                     continue; // skip invalid row; report all at end
                 }
 
@@ -337,8 +428,8 @@ class InputJob implements ShouldQueue
                     $record = $this->calculateTabulation($record, $monthDay);
                 } catch (Throwable $calcEx) {
                     throw new ImportException(
-                        'Error calculating tabulation at XLSX row ' . $rowNumber . ': ' . $calcEx->getMessage(),
-                        'Error calculating tabulation'
+                        'Error calculating tabulation at XLSX row '.$rowNumber.': '.$calcEx->getMessage(),
+                        'Gagal melakukan kalkulasi pada baris '.$rowNumber
                     );
                 }
 
@@ -437,8 +528,8 @@ class InputJob implements ShouldQueue
 
         $codes = array_slice(array_keys($missingRegencies), 0, 25);
         throw new ImportException(
-            'Unknown kode_kab short_codes: ' . implode(', ', $codes),
-            'File contains references not found in the database'
+            'Unknown kode_kab short_codes: '.implode(', ', $codes),
+            'Terdapat kode kabupaten/kota yang tidak terdaftar di database'
         );
     }
 
@@ -488,7 +579,7 @@ class InputJob implements ShouldQueue
         $highestRow = $sheet->getHighestRow();
 
         $clampedEndRow = min($endRow, $highestRow);
-        $range = 'A' . $startRow . ':' . $highestColumn . $clampedEndRow;
+        $range = 'A'.$startRow.':'.$highestColumn.$clampedEndRow;
         $rows = $sheet->rangeToArray($range, null, true, false);
 
         // FIX 5: Explicitly free the spreadsheet object and all its worksheets
@@ -748,7 +839,6 @@ class InputJob implements ShouldQueue
             }
 
             $indicators = Indicator::query()->pluck('id', 'code');
-            $categories = Category::query()->pluck('id', 'code');
 
             foreach (['TPK', 'RLMTA', 'RLMTN', 'GPR', 'TPTT'] as $code) {
                 if ($indicators->get($code) === null) {
@@ -756,35 +846,23 @@ class InputJob implements ShouldQueue
                 }
             }
 
-            foreach (['1', '2'] as $code) {
-                if ($categories->get($code) === null) {
-                    throw new RuntimeException("Category '{$code}' not found in database");
-                }
-            }
-
             IndicatorValue::where('year_id', $yearId)
                 ->where('month_id', $monthId)
                 ->delete();
 
-            $bintangCatId    = (int) $categories->get('1');
-            $nonBintangCatId = (int) $categories->get('2');
-            $tpkId           = (int) $indicators->get('TPK');
-            $rlmtaId         = (int) $indicators->get('RLMTA');
-            $rlmtnId         = (int) $indicators->get('RLMTN');
-            $gprId           = (int) $indicators->get('GPR');
-            $tpttId          = (int) $indicators->get('TPTT');
+            $bintangCatId = $this->getCategory('1');
+            $nonBintangCatId = $this->getCategory('2');
 
-            // Resolve the province id from the map — it's the one short_code whose
-            // corresponding regency has level='province'. Fetch it directly.
-            $province = Regency::query()
-                ->where('level', 'province')
-                ->select('id', 'short_code')
-                ->firstOrFail();
+            $tpkId = (int) $indicators->get('TPK');
+            $rlmtaId = (int) $indicators->get('RLMTA');
+            $rlmtnId = (int) $indicators->get('RLMTN');
+            $gprId = (int) $indicators->get('GPR');
+            $tpttId = (int) $indicators->get('TPTT');
 
-            $provinceId = (int) $province->id;
+            $provinceId = $this->getProvinceId();
 
             /** @var array<string, mixed> $aggMap */
-            $aggMap = $aggregates->keyBy(fn($agg) => $agg->kode_kab . '_' . $agg->jenis_akomodasi)->all();
+            $aggMap = $aggregates->keyBy(fn ($agg) => $agg->kode_kab.'_'.$agg->jenis_akomodasi)->all();
 
             $regencyIds = $aggregates->pluck('kode_kab')->unique()->all();
 
@@ -793,8 +871,8 @@ class InputJob implements ShouldQueue
 
             foreach ($regencyIds as $regencyId) {
 
-                $agg1 = $aggMap[$regencyId . '_1'] ?? null;
-                $agg2 = $aggMap[$regencyId . '_2'] ?? null;
+                $agg1 = $aggMap[$regencyId.'_1'] ?? null;
+                $agg2 = $aggMap[$regencyId.'_2'] ?? null;
 
                 // TPK
                 $records[] = $this->makeIndicatorRecord(
@@ -918,7 +996,7 @@ class InputJob implements ShouldQueue
                     'sum_tnus' => 0,
                     'sum_mtgab' => 0,
                     'sum_bed' => 0,
-                    'has_data' => false
+                    'has_data' => false,
                 ],
                 2 => [
                     'sum_mktj' => 0,
@@ -929,24 +1007,24 @@ class InputJob implements ShouldQueue
                     'sum_tnus' => 0,
                     'sum_mtgab' => 0,
                     'sum_bed' => 0,
-                    'has_data' => false
+                    'has_data' => false,
                 ],
             ];
 
             foreach ($aggregates as $agg) {
                 $jenis = (int) $agg->jenis_akomodasi;
-                if (!isset($provinceSums[$jenis])) {
+                if (! isset($provinceSums[$jenis])) {
                     continue;
                 }
-                $provinceSums[$jenis]['has_data']  = true;
-                $provinceSums[$jenis]['sum_mktj']  += (int) $agg->sum_mktj;
-                $provinceSums[$jenis]['sum_mkts']  += (int) $agg->sum_mkts;
-                $provinceSums[$jenis]['sum_mta']   += (int) $agg->sum_mta;
-                $provinceSums[$jenis]['sum_ta']    += (int) $agg->sum_ta;
+                $provinceSums[$jenis]['has_data'] = true;
+                $provinceSums[$jenis]['sum_mktj'] += (int) $agg->sum_mktj;
+                $provinceSums[$jenis]['sum_mkts'] += (int) $agg->sum_mkts;
+                $provinceSums[$jenis]['sum_mta'] += (int) $agg->sum_mta;
+                $provinceSums[$jenis]['sum_ta'] += (int) $agg->sum_ta;
                 $provinceSums[$jenis]['sum_mtnus'] += (int) $agg->sum_mtnus;
-                $provinceSums[$jenis]['sum_tnus']  += (int) $agg->sum_tnus;
+                $provinceSums[$jenis]['sum_tnus'] += (int) $agg->sum_tnus;
                 $provinceSums[$jenis]['sum_mtgab'] += (int) $agg->sum_mtgab;
-                $provinceSums[$jenis]['sum_bed']   += (int) $agg->sum_bed;
+                $provinceSums[$jenis]['sum_bed'] += (int) $agg->sum_bed;
             }
 
             $prov1 = $provinceSums[1]['has_data'] ? $provinceSums[1] : null;
@@ -1067,8 +1145,8 @@ class InputJob implements ShouldQueue
             }
         } catch (Throwable $e) {
             throw new ImportException(
-                'Indicator calculation failed: ' . $e->getMessage(),
-                'Indicator calculation failed'
+                'Indicator calculation failed: '.$e->getMessage(),
+                'Gagal menghitung nilai indikator'
             );
         }
     }
@@ -1111,9 +1189,8 @@ class InputJob implements ShouldQueue
 
             $hotelErrorId = ErrorModel::query()->where('code', 'Hotel')->value('id');
             $indikatorErrorId = ErrorModel::query()->where('code', 'Indikator')->value('id');
-            $categories = Category::query()->pluck('id', 'code');
-            $bintangCatId = (int) $categories->get('1');
-            $nonBintangCatId = (int) $categories->get('2');
+            $bintangCatId = $this->getCategory('1');
+            $nonBintangCatId = $this->getCategory('2');
 
             $regencyIds = Input::query()
                 ->where('tahun', $yearId)
@@ -1137,14 +1214,9 @@ class InputJob implements ShouldQueue
                 ->whereIn('jenis_akomodasi', [1, 2])
                 ->groupBy('kode_kab', 'jenis_akomodasi')
                 ->get()
-                ->keyBy(fn($row) => $row->regency_id . '_' . $row->jenis_akomodasi);
+                ->keyBy(fn ($row) => $row->regency_id.'_'.$row->jenis_akomodasi);
 
-            $province = Regency::query()
-                ->where('level', 'province')
-                ->select('id')
-                ->firstOrFail();
-
-            $provinceId = (int) $province->id;
+            $provinceId = $this->getProvinceId();
 
             ErrorSummary::query()
                 ->where('month_id', $monthId)
@@ -1162,36 +1234,36 @@ class InputJob implements ShouldQueue
 
             foreach ($regencyIds as $regencyId) {
                 foreach ([1 => $bintangCatId, 2 => $nonBintangCatId] as $jenis => $categoryId) {
-                    $row = $aggregates->get($regencyId . '_' . $jenis);
+                    $row = $aggregates->get($regencyId.'_'.$jenis);
 
-                    $hotelCount    = (int) ($row->hotel_error_count ?? 0);
-                    $indikatorSum  = (int) ($row->indikator_error_sum ?? 0);
+                    $hotelCount = (int) ($row->hotel_error_count ?? 0);
+                    $indikatorSum = (int) ($row->indikator_error_sum ?? 0);
 
-                    $provinceSums[$jenis]['hotel_error_count']   += $hotelCount;
+                    $provinceSums[$jenis]['hotel_error_count'] += $hotelCount;
                     $provinceSums[$jenis]['indikator_error_sum'] += $indikatorSum;
 
                     $records[] = [
-                        'id'          => (string) Str::uuid(),
-                        'regency_id'  => (int) $regencyId,
-                        'month_id'    => $monthId,
-                        'year_id'     => $yearId,
-                        'error_id'    => $hotelErrorId,
+                        'id' => (string) Str::uuid(),
+                        'regency_id' => (int) $regencyId,
+                        'month_id' => $monthId,
+                        'year_id' => $yearId,
+                        'error_id' => $hotelErrorId,
                         'category_id' => $categoryId,
-                        'value'       => $hotelCount,
-                        'created_at'  => $now,
-                        'updated_at'  => $now,
+                        'value' => $hotelCount,
+                        'created_at' => $now,
+                        'updated_at' => $now,
                     ];
 
                     $records[] = [
-                        'id'          => (string) Str::uuid(),
-                        'regency_id'  => (int) $regencyId,
-                        'month_id'    => $monthId,
-                        'year_id'     => $yearId,
-                        'error_id'    => $indikatorErrorId,
+                        'id' => (string) Str::uuid(),
+                        'regency_id' => (int) $regencyId,
+                        'month_id' => $monthId,
+                        'year_id' => $yearId,
+                        'error_id' => $indikatorErrorId,
                         'category_id' => $categoryId,
-                        'value'       => $indikatorSum,
-                        'created_at'  => $now,
-                        'updated_at'  => $now,
+                        'value' => $indikatorSum,
+                        'created_at' => $now,
+                        'updated_at' => $now,
                     ];
                 }
             }
@@ -1199,27 +1271,27 @@ class InputJob implements ShouldQueue
             // Province records — summed from all children
             foreach ([1 => $bintangCatId, 2 => $nonBintangCatId] as $jenis => $categoryId) {
                 $records[] = [
-                    'id'          => (string) Str::uuid(),
-                    'regency_id'  => $provinceId,
-                    'month_id'    => $monthId,
-                    'year_id'     => $yearId,
-                    'error_id'    => $hotelErrorId,
+                    'id' => (string) Str::uuid(),
+                    'regency_id' => $provinceId,
+                    'month_id' => $monthId,
+                    'year_id' => $yearId,
+                    'error_id' => $hotelErrorId,
                     'category_id' => $categoryId,
-                    'value'       => $provinceSums[$jenis]['hotel_error_count'],
-                    'created_at'  => $now,
-                    'updated_at'  => $now,
+                    'value' => $provinceSums[$jenis]['hotel_error_count'],
+                    'created_at' => $now,
+                    'updated_at' => $now,
                 ];
 
                 $records[] = [
-                    'id'          => (string) Str::uuid(),
-                    'regency_id'  => $provinceId,
-                    'month_id'    => $monthId,
-                    'year_id'     => $yearId,
-                    'error_id'    => $indikatorErrorId,
+                    'id' => (string) Str::uuid(),
+                    'regency_id' => $provinceId,
+                    'month_id' => $monthId,
+                    'year_id' => $yearId,
+                    'error_id' => $indikatorErrorId,
                     'category_id' => $categoryId,
-                    'value'       => $provinceSums[$jenis]['indikator_error_sum'],
-                    'created_at'  => $now,
-                    'updated_at'  => $now,
+                    'value' => $provinceSums[$jenis]['indikator_error_sum'],
+                    'created_at' => $now,
+                    'updated_at' => $now,
                 ];
             }
 
@@ -1228,8 +1300,8 @@ class InputJob implements ShouldQueue
             }
         } catch (Throwable $e) {
             throw new ImportException(
-                'Error summarization failed: ' . $e->getMessage(),
-                'Summarizing error failed'
+                'Error summarization failed: '.$e->getMessage(),
+                'Gagal merekapitulasi error'
             );
         }
     }
@@ -1244,19 +1316,15 @@ class InputJob implements ShouldQueue
             $errorTypes = ErrorType::query()
                 ->pluck('id', 'column_name');
 
-            // Get all input IDs for this month/year
-            $inputIds = Input::query()
-                ->where('tahun', $yearId)
-                ->where('bulan', $monthId)
-                ->pluck('id');
-
-            if ($inputIds->isEmpty()) {
-                return;
-            }
-
             // Step 1: Set is_active = false for all existing confirmations
+            // Replaced whereIn arrays with subset queries to avoid memory constraints
             Confirmation::query()
-                ->whereIn('input_id', $inputIds)
+                ->whereIn('input_id', function ($query) use ($yearId, $monthId) {
+                    $query->select('id')
+                        ->from((new Input)->getTable())
+                        ->where('tahun', $yearId)
+                        ->where('bulan', $monthId);
+                })
                 ->update(['is_active' => false]);
 
             $errorColumns = $errorTypes->keys()->toArray();
@@ -1293,11 +1361,13 @@ class InputJob implements ShouldQueue
                 return;
             }
 
+            $errorInputIds = $inputsWithErrors->pluck('id')->all();
+
             // Step 4: Get existing confirmations for these combinations
             $existingConfirmations = Confirmation::query()
-                ->whereIn('input_id', $inputIds)
+                ->whereIn('input_id', $errorInputIds)
                 ->get()
-                ->keyBy(fn($c) => $c->input_id . '_' . $c->error_type_id);
+                ->keyBy(fn ($c) => $c->input_id.'_'.$c->error_type_id);
 
             // Step 5: Prepare records to insert and update
             $recordsToInsert = [];
@@ -1305,7 +1375,7 @@ class InputJob implements ShouldQueue
             $now = now()->toDateTimeString();
 
             foreach ($requiredCombinations as $combination) {
-                $key = $combination['input_id'] . '_' . $combination['error_type_id'];
+                $key = $combination['input_id'].'_'.$combination['error_type_id'];
 
                 if (isset($existingConfirmations[$key])) {
                     // Existing record - mark for activation
@@ -1326,22 +1396,22 @@ class InputJob implements ShouldQueue
             }
 
             // Step 6: Activate existing records
-            if (!empty($idsToActivate)) {
+            if (! empty($idsToActivate)) {
                 Confirmation::query()
                     ->whereIn('id', $idsToActivate)
                     ->update(['is_active' => true, 'updated_at' => $now]);
             }
 
             // Step 7: Insert new records in batches
-            if (!empty($recordsToInsert)) {
+            if (! empty($recordsToInsert)) {
                 foreach (array_chunk($recordsToInsert, 500) as $chunk) {
                     Confirmation::insert($chunk);
                 }
             }
         } catch (Throwable $e) {
             throw new ImportException(
-                'Confirmation population failed: ' . $e->getMessage(),
-                'Populating confirmations failed'
+                'Confirmation population failed: '.$e->getMessage(),
+                'Gagal merekapitulasi konfirmasi error'
             );
         }
     }
@@ -1355,9 +1425,8 @@ class InputJob implements ShouldQueue
             $yearId = $syncStatus->year_id;
             $monthId = $syncStatus->month_id;
 
-            $categories = Category::query()->pluck('id', 'code');
-            $bintangCatId = (int) $categories->get('1');
-            $nonBintangCatId = (int) $categories->get('2');
+            $bintangCatId = $this->getCategory('1');
+            $nonBintangCatId = $this->getCategory('2');
 
             $regencyIds = Input::query()
                 ->where('tahun', $yearId)
@@ -1380,14 +1449,9 @@ class InputJob implements ShouldQueue
                 ->whereIn('jenis_akomodasi', [1, 2])
                 ->groupBy('kode_kab', 'jenis_akomodasi')
                 ->get()
-                ->keyBy(fn($row) => $row->regency_id . '_' . $row->jenis_akomodasi);
+                ->keyBy(fn ($row) => $row->regency_id.'_'.$row->jenis_akomodasi);
 
-            $province = Regency::query()
-                ->where('level', 'province')
-                ->select('id')
-                ->firstOrFail();
-
-            $provinceId = (int) $province->id;
+            $provinceId = $this->getProvinceId();
 
             Enumeration::query()
                 ->where('month_id', $monthId)
@@ -1404,20 +1468,20 @@ class InputJob implements ShouldQueue
 
             foreach ($regencyIds as $regencyId) {
                 foreach ([1 => $bintangCatId, 2 => $nonBintangCatId] as $jenis => $categoryId) {
-                    $row = $aggregates->get($regencyId . '_' . $jenis);
+                    $row = $aggregates->get($regencyId.'_'.$jenis);
                     $count = (int) ($row->count ?? 0);
 
                     $provinceSums[$jenis] += $count;
 
                     $records[] = [
-                        'id'          => (string) Str::uuid(),
-                        'regency_id'  => (int) $regencyId,
-                        'month_id'    => $monthId,
-                        'year_id'     => $yearId,
+                        'id' => (string) Str::uuid(),
+                        'regency_id' => (int) $regencyId,
+                        'month_id' => $monthId,
+                        'year_id' => $yearId,
                         'category_id' => $categoryId,
-                        'value'       => $count,
-                        'created_at'  => $now,
-                        'updated_at'  => $now,
+                        'value' => $count,
+                        'created_at' => $now,
+                        'updated_at' => $now,
                     ];
                 }
             }
@@ -1425,14 +1489,14 @@ class InputJob implements ShouldQueue
             // Province records — summed from all children
             foreach ([1 => $bintangCatId, 2 => $nonBintangCatId] as $jenis => $categoryId) {
                 $records[] = [
-                    'id'          => (string) Str::uuid(),
-                    'regency_id'  => $provinceId,
-                    'month_id'    => $monthId,
-                    'year_id'     => $yearId,
+                    'id' => (string) Str::uuid(),
+                    'regency_id' => $provinceId,
+                    'month_id' => $monthId,
+                    'year_id' => $yearId,
                     'category_id' => $categoryId,
-                    'value'       => $provinceSums[$jenis],
-                    'created_at'  => $now,
-                    'updated_at'  => $now,
+                    'value' => $provinceSums[$jenis],
+                    'created_at' => $now,
+                    'updated_at' => $now,
                 ];
             }
 
@@ -1441,8 +1505,8 @@ class InputJob implements ShouldQueue
             }
         } catch (Throwable $e) {
             throw new ImportException(
-                'Progress calculation failed: ' . $e->getMessage(),
-                'Progress calculation failed'
+                'Progress calculation failed: '.$e->getMessage(),
+                'Gagal menghitung nilai progres'
             );
         }
     }
