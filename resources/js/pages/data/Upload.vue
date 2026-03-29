@@ -79,19 +79,7 @@ const breadcrumbs = [
                         :regencies="props.regencies" :defaultMonth="props.defaultMonth"
                         :defaultYear="props.defaultYear" />
                 </a-tab-pane>
-                <a-tab-pane key="2" tab="Upload Target Sampel">
-                    <div class="bg-yellow-50 border-l-4 border-yellow-500 p-4 rounded mb-4 flex items-center gap-3">
-                        <span class="text-yellow-500 text-2xl"><i class="fa fa-bullseye"></i></span>
-                        <div>
-                            <span class="font-bold text-yellow-700 text-lg">Target Sampel</span>
-                            <p class="text-sm text-yellow-700 mt-1">Upload Target Sampel per Kabupaten/Kota</p>
-                        </div>
-                    </div>
-                    <UploadTargetSample :months="props.months" :years="props.years" :statuses="props.statuses"
-                        :regencies="props.regencies" :categories="props.categories" :defaultMonth="props.defaultMonth"
-                        :defaultYear="props.defaultYear" />
-                </a-tab-pane>
-                <a-tab-pane key="3" tab="Upload Angka Final">
+                <a-tab-pane key="2" tab="Upload Angka Final">
                     <div class="bg-green-50 border-l-4 border-green-500 p-4 rounded mb-4 flex items-center gap-3">
                         <span class="text-green-500 text-2xl"><i class="fa fa-check-circle"></i></span>
                         <div>
@@ -103,6 +91,19 @@ const breadcrumbs = [
                         :categories="props.categories" :defaultMonth="props.defaultMonth"
                         :defaultYear="props.defaultYear" :statuses="props.statuses" />
                 </a-tab-pane>
+                <a-tab-pane key="3" tab="Upload Target Sampel">
+                    <div class="bg-yellow-50 border-l-4 border-yellow-500 p-4 rounded mb-4 flex items-center gap-3">
+                        <span class="text-yellow-500 text-2xl"><i class="fa fa-bullseye"></i></span>
+                        <div>
+                            <span class="font-bold text-yellow-700 text-lg">Target Sampel</span>
+                            <p class="text-sm text-yellow-700 mt-1">Upload Target Sampel per Kabupaten/Kota</p>
+                        </div>
+                    </div>
+                    <UploadTargetSample :months="props.months" :years="props.years" :statuses="props.statuses"
+                        :regencies="props.regencies" :categories="props.categories" :defaultMonth="props.defaultMonth"
+                        :defaultYear="props.defaultYear" />
+                </a-tab-pane>
+
             </a-tabs>
         </div>
     </AppLayout>

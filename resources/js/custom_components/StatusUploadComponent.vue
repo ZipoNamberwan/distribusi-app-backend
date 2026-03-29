@@ -3,7 +3,12 @@ import moment from 'moment';
 import { ref, computed, watch } from 'vue';
 import { usePagination } from 'vue-request';
 import { index as statusIndex } from '@/routes/data/status';
+import { download as downloadFile } from '@/routes/upload/file';
+import { usePage } from '@inertiajs/vue3';
+import { DownloadOutlined } from '@ant-design/icons-vue';
+import { message } from 'ant-design-vue';
 
+const page = usePage();
 const lastParams = ref({});
 
 const props = defineProps({
@@ -153,6 +158,39 @@ watch(open, (isOpen) => {
     }
 });
 
+const downloadingIds = ref([]);
+const handleDownload = async (record) => {
+    downloadingIds.value.push(record.id);
+    try {
+        const response = await fetch(downloadFile.url(), {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': page.props.csrf_token,
+            },
+            body: JSON.stringify({ uploadId: record.id }),
+        });
+
+        if (!response.ok) {
+            throw new Error(`Gagal mengunduh file (${response.status}: ${response.statusText})`);
+        }
+
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.setAttribute('download', record.filename);
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        window.URL.revokeObjectURL(url);
+    } catch (e) {
+        message.error(e.message || 'Terjadi kesalahan saat mengunduh file');
+    } finally {
+        downloadingIds.value = downloadingIds.value.filter(id => id !== record.id);
+    }
+};
+
 </script>
 
 <template>
@@ -172,6 +210,23 @@ watch(open, (isOpen) => {
             </template>
             <template v-if="column.key === 'periode'">
                 <span>{{ record.month?.name }} {{ record.year?.name }}</span>
+            </template>
+            <template v-else-if="column.dataIndex === 'filename'">
+                <div class="flex items-center gap-1">
+                    <span>{{ text }}</span>
+                    <a-button 
+                        v-if="text" 
+                        type="text" 
+                        size="small" 
+                        title="Unduh"
+                        :loading="downloadingIds.includes(record.id)"
+                        @click="handleDownload(record)"
+                    >
+                        <template #icon>
+                            <DownloadOutlined />
+                        </template>
+                    </a-button>
+                </div>
             </template>
             <template v-else-if="column.dataIndex === 'message'">
                 <span :title="text">{{ text ? text.slice(0, 150) + (text.length > 150 ? '…' : '') : '' }}</span>
