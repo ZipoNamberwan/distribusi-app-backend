@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import AppLayout from '@/layouts/app/AppSidebarLayout.vue';
-import type { BreadcrumbItem } from '@/types';
 import { theme } from 'ant-design-vue';
 import { computed } from 'vue';
 import { useAppearance } from '@/composables/useAppearance';
+import AppLayout from '@/layouts/app/AppSidebarLayout.vue';
+import type { BreadcrumbItem } from '@/types';
 
 type Props = {
     breadcrumbs?: BreadcrumbItem[];

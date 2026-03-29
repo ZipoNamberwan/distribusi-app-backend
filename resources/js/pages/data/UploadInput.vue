@@ -1,11 +1,11 @@
 <script setup>
 import { useForm, usePage } from '@inertiajs/vue3';
-import { ref, watch, computed } from 'vue'
 import { message } from 'ant-design-vue'
+import { ref, watch, computed } from 'vue'
+import RawDataComponent from '@/custom_components/RawDataComponent.vue';
+import StatusUploadComponent from '@/custom_components/StatusUploadComponent.vue';
 import { index as storeUpload } from '@/routes/upload/store';
 import { index as downloadTemplate } from '@/routes/upload/template';
-import StatusUploadComponent from '@/custom_components/StatusUploadComponent.vue';
-import RawDataComponent from '@/custom_components/RawDataComponent.vue';
 
 const page = usePage();
 const rawDataOpen = ref(false);

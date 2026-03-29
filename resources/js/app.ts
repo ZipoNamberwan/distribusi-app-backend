@@ -39,3 +39,10 @@ router.on('navigate', (event) => {
         axios.defaults.headers.common['X-CSRF-TOKEN'] = csrfToken;
     }
 });
+
+// Register service worker for PWA
+if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/sw.js').catch(() => {});
+    });
+}

@@ -1,14 +1,14 @@
 <script setup>
-import { ref, computed, onMounted, onUnmounted, h } from 'vue';
+import { ArrowUpOutlined, ArrowDownOutlined, DownloadOutlined, ShareAltOutlined } from '@ant-design/icons-vue';
 import { Head } from '@inertiajs/vue3';
-import AppLayout from '@/layouts/AppLayout.vue';
-import { index as predictionPage } from '@/routes/prediction/page';
-import { index as predictionIndex } from '@/routes/prediction/data';
+import ExcelJS from 'exceljs';
+import { ref, computed, onMounted, onUnmounted, h } from 'vue';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useAppearance } from '@/composables/useAppearance';
 import PredictionsMobile from '@/custom_components/mobile/PredictionsMobile.vue';
-import { ArrowUpOutlined, ArrowDownOutlined, DownloadOutlined, ShareAltOutlined } from '@ant-design/icons-vue';
-import ExcelJS from 'exceljs';
+import AppLayout from '@/layouts/AppLayout.vue';
+import { index as predictionIndex } from '@/routes/prediction/data';
+import { index as predictionPage } from '@/routes/prediction/page';
 
 const props = defineProps({
     months: { type: Array, required: true, default: () => [] },

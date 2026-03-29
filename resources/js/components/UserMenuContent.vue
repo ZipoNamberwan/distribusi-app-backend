@@ -9,8 +9,8 @@ import {
 } from "@/components/ui/dropdown-menu";
 import UserInfo from "@/components/UserInfo.vue";
 import { logout } from "@/routes";
-import { index as logoutIndex } from "@/routes/sso/logout";
 import { edit } from "@/routes/profile";
+import { index as logoutIndex } from "@/routes/sso/logout";
 import type { User } from "@/types";
 
 type Props = {

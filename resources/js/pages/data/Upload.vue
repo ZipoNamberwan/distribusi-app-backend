@@ -4,9 +4,9 @@ import { ref } from 'vue'
 import AppLayout from '@/layouts/AppLayout.vue';
 import { index as dataIndex } from '@/routes/data';
 import { index as uploadIndex } from '@/routes/upload';
+import UploadFinalNumber from './UploadFinalNumber.vue';
 import UploadInput from './UploadInput.vue';
 import UploadTargetSample from './UploadTargetSample.vue';
-import UploadFinalNumber from './UploadFinalNumber.vue';
 const props = defineProps({
     months: {
         type: Array,

@@ -1,15 +1,15 @@
 <script setup>
-import { Head } from '@inertiajs/vue3';
-import AppLayout from '@/layouts/AppLayout.vue';
-import { index as dashboard } from '@/routes/data/dashboard';
-import { Card, Statistic } from 'ant-design-vue';
 import {
     EnvironmentOutlined,
     BarChartOutlined,
     WarningOutlined,
 } from '@ant-design/icons-vue';
-import { computed, onMounted } from 'vue';
+import { Head } from '@inertiajs/vue3';
+import { Card, Statistic } from 'ant-design-vue';
 import L from 'leaflet';
+import { computed, onMounted } from 'vue';
+import AppLayout from '@/layouts/AppLayout.vue';
+import { index as dashboard } from '@/routes/data/dashboard';
 import 'leaflet/dist/leaflet.css';
 import { index as indexMap } from "@/routes/data/map";
 

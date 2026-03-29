@@ -14,16 +14,16 @@ import {
     SidebarMenuButton,
     SidebarMenuItem,
 } from '@/components/ui/sidebar';
-import { index as dashboard } from '@/routes/data/dashboard';
-import { index as dataIndex } from '@/routes/data';
-import { index as dataUpload } from '@/routes/upload';
-import { index as indicatorValues } from '@/routes/indicator/table';
-import { index as errorSummaries } from '@/routes/error_summaries/page';
-import { index as enumerationPage } from '@/routes/enumeration/page';
-import { index as predictionPage } from '@/routes/prediction/page';
-import { index as userPage } from '@/routes/user/page';
 import { index as confirmationPage } from '@/routes/confirmation/page';
+import { index as dataIndex } from '@/routes/data';
+import { index as dashboard } from '@/routes/data/dashboard';
+import { index as enumerationPage } from '@/routes/enumeration/page';
+import { index as errorSummaries } from '@/routes/error_summaries/page';
+import { index as indicatorValues } from '@/routes/indicator/table';
 import { index as phenomenaPage } from '@/routes/phenomena/page';
+import { index as predictionPage } from '@/routes/prediction/page';
+import { index as dataUpload } from '@/routes/upload';
+import { index as userPage } from '@/routes/user/page';
 
 const page = usePage();
 const roles = page.props.auth.roles;

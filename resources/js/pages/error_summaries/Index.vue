@@ -1,14 +1,14 @@
 <script setup lang="js">
-import { ref, computed, onMounted, onUnmounted, h } from 'vue';
+import { DownloadOutlined, ShareAltOutlined } from '@ant-design/icons-vue';
 import { Head } from '@inertiajs/vue3';
-import AppLayout from '@/layouts/AppLayout.vue';
+import ExcelJS from 'exceljs';
+import { ref, computed, onMounted, onUnmounted, h } from 'vue';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { index as errorSummariesPage } from '@/routes/error_summaries/page';
-import { index as errorSummariesData } from '@/routes/error_summaries/data';
 import { useAppearance } from '@/composables/useAppearance';
 import ErrorSummariesMobile from '@/custom_components/mobile/ErrorSummariesMobile.vue';
-import { DownloadOutlined, ShareAltOutlined } from '@ant-design/icons-vue';
-import ExcelJS from 'exceljs';
+import AppLayout from '@/layouts/AppLayout.vue';
+import { index as errorSummariesData } from '@/routes/error_summaries/data';
+import { index as errorSummariesPage } from '@/routes/error_summaries/page';
 
 const breadcrumbs = [
     {

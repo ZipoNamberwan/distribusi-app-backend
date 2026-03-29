@@ -1,14 +1,14 @@
 <script setup lang="js">
-import { ref, computed, onMounted, onUnmounted, h } from 'vue';
-import { Head } from '@inertiajs/vue3';
-import AppLayout from '@/layouts/AppLayout.vue';
-import { index as enumerationPage } from '@/routes/enumeration/page';
-import { index as enumerationIndex } from '@/routes/enumeration/data';
-import { useAppearance } from '@/composables/useAppearance';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import EnumerationsMobile from '@/custom_components/mobile/EnumerationsMobile.vue';
 import { DownloadOutlined, ShareAltOutlined } from '@ant-design/icons-vue';
+import { Head } from '@inertiajs/vue3';
 import ExcelJS from 'exceljs';
+import { ref, computed, onMounted, onUnmounted, h } from 'vue';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { useAppearance } from '@/composables/useAppearance';
+import EnumerationsMobile from '@/custom_components/mobile/EnumerationsMobile.vue';
+import AppLayout from '@/layouts/AppLayout.vue';
+import { index as enumerationIndex } from '@/routes/enumeration/data';
+import { index as enumerationPage } from '@/routes/enumeration/page';
 
 const props = defineProps({
     months: { type: Array, required: true, default: () => [] },

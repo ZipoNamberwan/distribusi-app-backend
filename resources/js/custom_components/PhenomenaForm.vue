@@ -1,7 +1,7 @@
 <script setup>
 import { useForm, usePage } from '@inertiajs/vue3';
-import { ref } from 'vue'
 import { message } from 'ant-design-vue'
+import { ref } from 'vue'
 import { store as storePhenomena } from '@/routes/phenomena/store'
 
 const props = defineProps({

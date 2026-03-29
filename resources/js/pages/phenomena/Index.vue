@@ -1,14 +1,14 @@
 <script setup>
-import { Head, usePage } from '@inertiajs/vue3';
-import AppLayout from '@/layouts/AppLayout.vue';
-import { index as phenomenaPage } from '@/routes/user/page';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { ref, computed, onMounted, onUnmounted, h } from 'vue';
-import { index as dataIndex } from '@/routes/phenomena/data';
 import { SearchOutlined } from '@ant-design/icons-vue';
+import { Head, usePage } from '@inertiajs/vue3';
+import { message } from 'ant-design-vue'
+import { ref, computed, onMounted, onUnmounted, h } from 'vue';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import PhenomenaMobile from '@/custom_components/mobile/PhenomenaMobile.vue';
 import PhenomenaForm from '@/custom_components/PhenomenaForm.vue';
-import { message } from 'ant-design-vue'
+import AppLayout from '@/layouts/AppLayout.vue';
+import { index as dataIndex } from '@/routes/phenomena/data';
+import { index as phenomenaPage } from '@/routes/user/page';
 
 const breadcrumbs = [
     {

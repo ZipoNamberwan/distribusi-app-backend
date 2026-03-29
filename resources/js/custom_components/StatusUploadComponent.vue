@@ -1,8 +1,8 @@
 <script setup lang="js">
+import moment from 'moment';
 import { ref, computed, watch } from 'vue';
 import { usePagination } from 'vue-request';
 import { index as statusIndex } from '@/routes/data/status';
-import moment from 'moment';
 
 const lastParams = ref({});
 

@@ -1,7 +1,7 @@
 <script setup>
 import { Head } from '@inertiajs/vue3';
-import AppLayout from '@/layouts/AppLayout.vue';
 import RawDataComponent from '@/custom_components/RawDataComponent.vue';
+import AppLayout from '@/layouts/AppLayout.vue';
 import { index as dataPage } from '@/routes/data';
 
 const props = defineProps({

@@ -1,14 +1,14 @@
 <script setup lang="js">
-import AppLayout from '@/layouts/AppLayout.vue';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { ref, computed, onMounted, onUnmounted, h } from 'vue';
+import { DownloadOutlined, ShareAltOutlined } from '@ant-design/icons-vue';
 import { Head } from '@inertiajs/vue3';
+import ExcelJS from 'exceljs';
+import { ref, computed, onMounted, onUnmounted, h } from 'vue';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { useAppearance } from '@/composables/useAppearance';
+import IndicatorValuesMobile from '@/custom_components/mobile/IndicatorValuesMobile.vue';
+import AppLayout from '@/layouts/AppLayout.vue';
 import { index as dataIndex } from '@/routes/indicator/data';
 import { index as tableIndex } from '@/routes/indicator/table';
-import IndicatorValuesMobile from '@/custom_components/mobile/IndicatorValuesMobile.vue';
-import { useAppearance } from '@/composables/useAppearance';
-import ExcelJS from 'exceljs';
-import { DownloadOutlined, ShareAltOutlined } from '@ant-design/icons-vue';
 const breadcrumbs = [
     {
         title: 'Indikator',

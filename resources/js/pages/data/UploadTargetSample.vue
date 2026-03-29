@@ -1,10 +1,10 @@
 <script setup>
-import { ref, computed } from 'vue'
 import { useForm } from '@inertiajs/vue3';
-import { index as downloadTemplate } from '@/routes/sample/template';
-import { store as storeUpload } from '@/routes/sample/upload';
+import { ref, computed } from 'vue'
 import StatusUploadComponent from '@/custom_components/StatusUploadComponent.vue';
 import TargetSampleDataComponent from '@/custom_components/TargetSampleDataComponent.vue';
+import { index as downloadTemplate } from '@/routes/sample/template';
+import { store as storeUpload } from '@/routes/sample/upload';
 
 const props = defineProps({
     months: {

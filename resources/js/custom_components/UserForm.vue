@@ -1,8 +1,8 @@
 <script setup>
 import { useForm, usePage } from '@inertiajs/vue3';
+import { message } from 'ant-design-vue'
 import { ref } from 'vue'
 import { store as storeUser } from '@/routes/user/page';
-import { message } from 'ant-design-vue'
 
 const props = defineProps({
     user: {

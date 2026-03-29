@@ -1,10 +1,8 @@
 <script setup lang="ts">
-import Breadcrumbs from "@/components/Breadcrumbs.vue";
-import { SidebarTrigger } from "@/components/ui/sidebar";
-import type { BreadcrumbItem } from "@/types";
-import { ref, computed } from "vue";
 import { usePage, router } from "@inertiajs/vue3";
-import { LogOut, Moon, Sun, User } from "lucide-vue-next";
+import { LogOut, Moon, Sun, User, Download } from "lucide-vue-next";
+import { ref, computed } from "vue";
+import Breadcrumbs from "@/components/Breadcrumbs.vue";
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -12,9 +10,12 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
+import { SidebarTrigger } from "@/components/ui/sidebar";
 import { useAppearance } from "@/composables/useAppearance";
+import { usePWAInstall } from "@/composables/usePWAInstall";
 import { logout } from "@/routes";
 import { index as logoutIndex } from "@/routes/sso/logout";
+import type { BreadcrumbItem } from "@/types";
 
 // Theme state (handled globally now)
 const { appearance, updateAppearance } = useAppearance();
@@ -23,6 +24,8 @@ const isDark = computed(() => appearance.value === "dark");
 const toggleTheme = () => {
   updateAppearance(isDark.value ? "light" : "dark");
 };
+
+const { isInstallable, promptInstall } = usePWAInstall();
 
 const page = usePage();
 const user = computed(() => page.props.auth.user);
@@ -52,6 +55,17 @@ withDefaults(
       </template>
     </div>
     <div class="flex items-center gap-2">
+      <!-- Install App Button -->
+      <button
+        v-if="isInstallable"
+        @click="promptInstall"
+        class="hidden sm:flex items-center gap-1.5 px-3 py-1.5 mr-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 transition-colors"
+        aria-label="Install App"
+      >
+        <Download class="w-4 h-4" />
+        <span class="hidden md:inline">Install App</span>
+      </button>
+      
       <!-- Theme Toggle Button -->
       <button
         class="p-2 mr-2 rounded-full hover:bg-sidebar-accent focus:outline-none transition-colors"

@@ -1,11 +1,11 @@
 <script setup lang="ts">
 import { Link } from '@inertiajs/vue3';
+import { Moon, Sun } from "lucide-vue-next";
+import { computed } from "vue";
 import AppLogoIcon from '@/components/AppLogoIcon.vue';
 import BubbleAnimation from '@/components/BubbleAnimation.vue';
-import { home } from '@/routes';
-import { computed } from "vue";
 import { useAppearance } from "@/composables/useAppearance";
-import { Moon, Sun } from "lucide-vue-next";
+import { home } from '@/routes';
 
 const { appearance, updateAppearance } = useAppearance();
 const isDark = computed(() => appearance.value === "dark");

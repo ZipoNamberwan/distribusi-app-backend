@@ -1,17 +1,17 @@
 <script setup>
+import { HomeOutlined, EnvironmentOutlined, TableOutlined, InfoCircleOutlined } from '@ant-design/icons-vue';
 import { Head, useForm, usePage, router } from '@inertiajs/vue3';
 import { message } from 'ant-design-vue'
-import AppLayout from '@/layouts/AppLayout.vue';
-import { index as confirmationPage } from '@/routes/user/page';
+import debounce from 'lodash/debounce'
 import { ref, computed, watch, h } from 'vue';
 import { usePagination } from 'vue-request';
-import { index as confirmationDataIndex } from '@/routes/confirmation/data';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { store as confirmationStore } from '@/routes/confirmation/confirm';
-import { store as approveStore } from '@/routes/confirmation/approve';
-import { HomeOutlined, EnvironmentOutlined, TableOutlined, InfoCircleOutlined } from '@ant-design/icons-vue';
 import ConfirmationsMobile from '@/custom_components/mobile/ConfirmationsMobile.vue';
-import debounce from 'lodash/debounce'
+import AppLayout from '@/layouts/AppLayout.vue';
+import { store as approveStore } from '@/routes/confirmation/approve';
+import { store as confirmationStore } from '@/routes/confirmation/confirm';
+import { index as confirmationDataIndex } from '@/routes/confirmation/data';
+import { index as confirmationPage } from '@/routes/user/page';
 
 const breadcrumbs = [
     {

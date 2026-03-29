@@ -1,13 +1,13 @@
 <script setup>
 import { Head, router } from '@inertiajs/vue3';
-import AppLayout from '@/layouts/AppLayout.vue';
-import { usePagination } from 'vue-request';
+import { message } from 'ant-design-vue'
 import { ref, computed } from 'vue';
-import { index as userPage } from '@/routes/user/page';
+import { usePagination } from 'vue-request';
+import UserForm from '@/custom_components/UserForm.vue';
+import AppLayout from '@/layouts/AppLayout.vue';
 import { index as userDataIndex } from '@/routes/user/data';
 import { index as userDelete } from '@/routes/user/delete';
-import UserForm from '@/custom_components/UserForm.vue';
-import { message } from 'ant-design-vue'
+import { index as userPage } from '@/routes/user/page';
 
 const props = defineProps({
     regencies: {

@@ -32,8 +32,8 @@ import {
     TooltipTrigger,
 } from '@/components/ui/tooltip';
 import UserMenuContent from '@/components/UserMenuContent.vue';
-import { useCurrentUrl } from '@/composables/useCurrentUrl';
 import { useAppearance } from '@/composables/useAppearance';
+import { useCurrentUrl } from '@/composables/useCurrentUrl';
 import { getInitials } from '@/composables/useInitials';
 import { toUrl } from '@/lib/utils';
 import { dashboard } from '@/routes';
