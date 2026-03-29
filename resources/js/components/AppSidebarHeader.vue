@@ -59,7 +59,7 @@ withDefaults(
       <button
         v-if="isInstallable"
         @click="promptInstall"
-        class="hidden sm:flex items-center gap-1.5 px-3 py-1.5 mr-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 transition-colors"
+        class="flex items-center gap-1.5 px-3 py-1.5 mr-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 transition-colors"
         aria-label="Install App"
       >
         <Download class="w-4 h-4" />
