@@ -31,15 +31,15 @@ defineProps<{
             
             <div class="relative z-10 flex items-center gap-3 font-bold text-2xl tracking-tight">
                 <div class="flex h-12 w-12 items-center justify-center rounded-xl bg-white/20 backdrop-blur-md shadow-lg border border-white/20">
-                    <AppLogoIcon class="size-7 text-white" />
+                    <AppLogoIcon class="size-12 text-white" />
                 </div>
                 MENIKO JATIM
             </div>
 
             <div class="relative z-10 space-y-6 max-w-lg mb-20 animate-in fade-in slide-in-from-bottom-8 duration-700">
-                <h2 class="text-4xl md:text-5xl font-extrabold tracking-tight leading-tight">Welcome Back.</h2>
+                <h2 class="text-4xl md:text-5xl font-extrabold tracking-tight leading-tight">Selamat Datang di MENIKO JATIM</h2>
                 <p class="text-blue-100 text-lg leading-relaxed">
-                    Manage your analytics, track progress, and seamlessly handle all data distributions with elegance and ease.
+                    Monitoring Kualitas Data Survei Penyedia Jasa Akomodasi Bulanan Jawa Timur.
                 </p>
             </div>
             
@@ -91,7 +91,7 @@ defineProps<{
                                 class="mb-1 flex h-14 w-14 items-center justify-center rounded-2xl bg-blue-600 shadow-xl shadow-blue-500/30"
                             >
                                 <AppLogoIcon
-                                    class="size-8 text-white"
+                                    class="size-12 text-white"
                                 />
                             </div>
                             <span class="text-xl font-bold tracking-tight">MENIKO JATIM</span>
