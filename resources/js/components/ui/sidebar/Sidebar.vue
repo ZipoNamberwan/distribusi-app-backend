@@ -25,10 +25,10 @@ const { isMobile, state, openMobile, setOpenMobile } = useSidebar()
   <div
     v-if="collapsible === 'none'"
     data-slot="sidebar"
-    :class="cn('bg-sidebar relative text-sidebar-foreground flex h-full w-(--sidebar-width) flex-col overflow-hidden', props.class)"
+    :class="cn('bg-sidebar relative isolate text-sidebar-foreground flex h-full w-(--sidebar-width) flex-col overflow-hidden', props.class)"
     v-bind="$attrs"
   >
-    <div class="absolute inset-0 bg-gradient-to-br from-blue-900 via-blue-700 to-blue-500 -z-10 bg-cover bg-center"></div>
+    <div class="absolute inset-0 bg-gradient-to-br from-blue-900 via-blue-700 to-blue-500 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900 -z-10 bg-cover bg-center"></div>
     <BubbleAnimation :count="8" class="z-0" />
     <slot />
   </div>
@@ -39,12 +39,12 @@ const { isMobile, state, openMobile, setOpenMobile } = useSidebar()
       data-slot="sidebar"
       data-mobile="true"
       :side="side"
-      class="bg-sidebar relative text-sidebar-foreground w-(--sidebar-width) p-0 [&>button]:hidden overflow-hidden"
+      class="bg-sidebar text-sidebar-foreground w-(--sidebar-width) p-0 [&>button]:hidden overflow-hidden"
       :style="{
         '--sidebar-width': SIDEBAR_WIDTH_MOBILE,
       }"
     >
-      <div class="absolute inset-0 bg-gradient-to-br from-blue-900 via-blue-700 to-blue-500 -z-10 bg-cover bg-center"></div>
+      <div class="absolute inset-0 bg-gradient-to-br from-blue-900 via-blue-700 to-blue-500 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900 -z-10 bg-cover bg-center"></div>
       <BubbleAnimation :count="8" class="z-0" />
       <SheetHeader class="sr-only">
         <SheetTitle>Sidebar</SheetTitle>
@@ -92,9 +92,9 @@ const { isMobile, state, openMobile, setOpenMobile } = useSidebar()
     >
       <div
         data-sidebar="sidebar"
-        class="bg-sidebar relative group-data-[variant=floating]:border-sidebar-border flex h-full w-full flex-col overflow-hidden group-data-[variant=floating]:rounded-lg group-data-[variant=floating]:border group-data-[variant=floating]:shadow-sm"
+        class="bg-sidebar relative isolate group-data-[variant=floating]:border-sidebar-border flex h-full w-full flex-col overflow-hidden group-data-[variant=floating]:rounded-lg group-data-[variant=floating]:border group-data-[variant=floating]:shadow-sm"
       >
-        <div class="absolute inset-0 bg-gradient-to-br from-blue-900 via-blue-700 to-blue-500 -z-10 bg-cover bg-center"></div>
+        <div class="absolute inset-0 bg-gradient-to-br from-blue-900 via-blue-700 to-blue-500 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900 -z-10 bg-cover bg-center"></div>
         <BubbleAnimation :count="8" class="z-0" />
         <div class="relative z-10 flex flex-col h-full w-full">
             <slot />
