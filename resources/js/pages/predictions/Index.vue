@@ -121,8 +121,8 @@ const growthColumns = computed(() => {
                         if (aNull) return 1;   // a goes last
                         if (bNull) return -1;  // b goes last
 
-                        const aGrowth = ((aCurrent - aPrev) / Math.abs(aPrev)) * 100;
-                        const bGrowth = ((bCurrent - bPrev) / Math.abs(bPrev)) * 100;
+                        const aGrowth = aCurrent - aPrev;
+                        const bGrowth = bCurrent - bPrev;
 
                         return aGrowth - bGrowth;
                     },
@@ -131,7 +131,7 @@ const growthColumns = computed(() => {
                         const prevValue = record[growth.key]?.[key]?.['prev'] ?? null;
                         if (currentValue === null || prevValue === null) return h('span', '-');
 
-                        const growthValue = ((currentValue - prevValue) / Math.abs(prevValue)) * 100;
+                        const growthValue = currentValue - prevValue;
                         const color = growthValue >= 0 ? 'green' : 'red';
                         const Icon = growthValue >= 0 ? ArrowUpOutlined : ArrowDownOutlined;
 
@@ -140,7 +140,7 @@ const growthColumns = computed(() => {
                             { style: { color, display: 'inline-flex', alignItems: 'center', gap: '4px' } },
                             [
                                 h(Icon),
-                                `${growthValue.toFixed(2)}%`,
+                                `${growthValue.toFixed(2)}`,
                                 h('span', { style: { color: '#999', marginLeft: '4px' } }, `(${prevValue})`)
                             ]
                         );
@@ -248,7 +248,7 @@ const mobileCardConfig = computed(() => ({
                 const key = cat.id;
                 const current = record[growth.key]?.[key]?.current;
                 const prev = record[growth.key]?.[key]?.prev ?? null;
-                const value = current !== null && prev !== null ? (((current - prev) / Math.abs(prev)) * 100).toFixed(2) : '-';
+                const value = current !== null && prev !== null ? (current - prev).toFixed(2) : '-';
                 return { value, prev };
             });
             sections.push({
@@ -358,7 +358,7 @@ const downloadExcel = async (data) => {
                 if (currentValue === null || prevValue === null) {
                     row.push('-');
                 } else {
-                    const growthValue = ((currentValue - prevValue) / Math.abs(prevValue)) * 100;
+                    const growthValue = currentValue - prevValue;
                     row.push(Number(growthValue.toFixed(2)));
                 }
             });

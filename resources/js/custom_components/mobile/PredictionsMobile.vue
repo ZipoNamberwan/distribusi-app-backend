@@ -78,7 +78,7 @@ const getTextColor = (bgColor) => {
                                             class="inline-flex flex-col items-center gap-y-1">
                                             <span class="inline-flex items-center">
                                                 <span>{{ item.value >= 0 ? '▲' : '▼' }}</span>
-                                                {{ item.value }}%
+                                                {{ item.value }}
                                             </span>
                                             <span class="text-gray-400 leading-none">({{ item.prev }})</span>
                                         </span>
