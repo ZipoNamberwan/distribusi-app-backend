@@ -28,7 +28,6 @@ const breadcrumbs = [
         href: dataPage().url,
     },
 ];
-
 </script>
 
 <template>
@@ -37,11 +36,7 @@ const breadcrumbs = [
 
     <AppLayout :breadcrumbs="breadcrumbs">
         <div class="flex flex-col gap-4 sm:p-4">
-            <a-card title="Raw Data dan Tabulasi">
-                <RawDataComponent :open="false" :regencies="props.regencies" :months="props.months" :years="props.years" />
-            </a-card>
+            <RawDataComponent :open="false" :regencies="props.regencies" :months="props.months" :years="props.years" />
         </div>
-
-
     </AppLayout>
 </template>

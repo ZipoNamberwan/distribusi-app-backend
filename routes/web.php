@@ -39,6 +39,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('dashboard', [DataController::class, 'showDashboard'])->name('data.dashboard.index');
 
     Route::get('data', [DataController::class, 'showRawDataPage'])->name('data.index');
+    Route::post('data/download', [DataController::class, 'downloadRawData'])->name('data.download.download');
+    Route::get('data/download/status', [DataController::class, 'getDownloadRawDataStatusData'])->name('data.download.status.index');
+    Route::post('data/download/file', [DataController::class, 'downloadRawDataFile'])->name('data.download.file');
     Route::get('data/input', [DataController::class, 'getInputData'])->name('data.raw.index');
     Route::get('status/data/{type}', [DataController::class, 'getUploadStatusData'])->name('data.status.index');
 

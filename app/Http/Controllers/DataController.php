@@ -2,12 +2,15 @@
 
 namespace App\Http\Controllers;
 
+use App\Jobs\RawDataDownloadJob;
 use App\Models\Category;
+use App\Models\DownloadStatus;
 use App\Models\Enumeration;
 use App\Models\ErrorSummary;
 use App\Models\Indicator;
 use App\Models\IndicatorValue;
 use App\Models\Year;
+use Exception;
 use Illuminate\Http\Request;
 use App\Models\Input;
 use App\Models\Month;
@@ -20,7 +23,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 use Symfony\Component\HttpFoundation\JsonResponse;
-
+use Illuminate\Support\Str;
 class DataController extends Controller
 {
 
@@ -38,7 +41,7 @@ class DataController extends Controller
             ->first();
 
         // If no data → return default
-        if (! $latestPeriod) {
+        if (!$latestPeriod) {
             return Inertia::render('Dashboard', [
                 'tpk' => 0,
                 'enumeration' => 0,
@@ -288,7 +291,7 @@ class DataController extends Controller
         $orderColumn = 'created_at';
         $orderDir = 'desc';
 
-        if (!empty($request->input('sortOrder')) && ! empty($request->input('sortField'))) {
+        if (!empty($request->input('sortOrder')) && !empty($request->input('sortField'))) {
             $orderColumn = $request->input('sortField');
             if ($request->input('sortField') == 'regency') {
                 $orderColumn = 'kode_kab';
@@ -362,7 +365,7 @@ class DataController extends Controller
         $year = Year::find($request->input('year'));
         $month = Month::find($request->input('month'));
 
-        $orderDir = (! empty($request->input('sortOrder')) && $request->input('sortOrder') === 'descend') ? 'desc' : 'asc';
+        $orderDir = (!empty($request->input('sortOrder')) && $request->input('sortOrder') === 'descend') ? 'desc' : 'asc';
 
         $rows = $query->get()->sortBy(fn($row) => $row->regency->long_code, $orderDir === 'desc');
 
@@ -378,8 +381,8 @@ class DataController extends Controller
             ]);
             return [
                 'regency' => [
-                    'id'        => $first->regency->id,
-                    'name'      => $first->regency->name,
+                    'id' => $first->regency->id,
+                    'name' => $first->regency->name,
                     'long_code' => $first->regency->long_code,
                 ],
                 'values' => $values,
@@ -406,7 +409,7 @@ class DataController extends Controller
         $orderColumn = 'created_at';
         $orderDir = 'desc';
 
-        if (! empty($request->input('sortOrder')) && ! empty($request->input('sortField'))) {
+        if (!empty($request->input('sortOrder')) && !empty($request->input('sortField'))) {
             $orderColumn = $request->input('sortField');
             $direction = $request->input('sortOrder') === 'ascend' ? 'asc' : 'desc';
             $orderDir = $direction;
@@ -429,5 +432,88 @@ class DataController extends Controller
             'total' => $recordsTotal,
             'data' => $data,
         ]);
+    }
+
+    public function downloadRawData(Request $request)
+    {
+        $user = User::find(Auth::id());
+        $uuid = Str::uuid();
+
+        $status = DownloadStatus::where('user_id', $user->id)
+            ->where('type', 'raw_data')
+            ->whereIn('status', ['start', 'loading'])->first();
+
+        if ($status == null) {
+            $status = DownloadStatus::create([
+                'id' => $uuid,
+                'status' => 'start',
+                'user_id' => $user->id,
+                'type' => 'raw_data',
+                'year_id' => $request->input('year'),
+                'month_id' => $request->input('month'),
+                'filename' => 'raw_data_' . $uuid . '.csv',
+            ]);
+
+            try {
+                RawDataDownloadJob::dispatch($status);
+            } catch (Exception $e) {
+                $status->update([
+                    'status' => 'failed',
+                    'system_message' => $e->getMessage(),
+                    'user_message' => 'Download gagal diproses, log sudah disimpan.',
+                ]);
+
+                return redirect()->back()->with('error', 'Download gagal diproses: ' . $e->getMessage());
+            }
+
+            return redirect()->back()->with('success', 'Download sedang diproses, cek status pada tombol Status.');
+        }
+
+        return redirect()->back()->with('error', 'Download tidak diproses karena masih ada proses download yang sedang berjalan.');
+    }
+
+    public function getDownloadRawDataStatusData(Request $request): JsonResponse
+    {
+        $currentUser = User::find(Auth::id());
+
+        $records = DownloadStatus::with(['month', 'year', 'user'])
+            ->where('type', 'raw_data')
+            ->when($currentUser->hasRole('adminkab'), function ($query) use ($currentUser) {
+                $query->whereHas('user', fn ($q) => $q->where('regency_id', $currentUser->regency_id));
+            });
+
+        $orderColumn = 'created_at';
+        $orderDir = 'desc';
+
+        if (!empty($request->input('sortOrder')) && !empty($request->input('sortField'))) {
+            $orderColumn = $request->input('sortField');
+            $direction = $request->input('sortOrder') === 'ascend' ? 'asc' : 'desc';
+            $orderDir = $direction;
+        }
+
+        $recordsTotal = $records->count();
+
+        // Pagination
+        if ($request->input('length') != -1) {
+            $records->skip($request->input('start'))
+                ->take($request->input('length'));
+        }
+
+        // Order
+        $records->orderBy($orderColumn, $orderDir);
+
+        $data = $records->get();
+
+        return response()->json([
+            'total' => $recordsTotal,
+            'data' => $data,
+        ]);
+    }
+
+    public function downloadRawDataFile(Request $request)
+    {
+        $status = DownloadStatus::findOrFail($request->input('downloadId'));
+
+        return Storage::download('raw_data_downloads/' . $status->filename, $status->filename);
     }
 }

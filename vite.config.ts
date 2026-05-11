@@ -10,12 +10,12 @@ export default defineConfig(({ mode }) => {
     return {
         server: {
             host: '0.0.0.0',
-            port: 5173,
+            port: parseInt(env.VITE_DEV_SERVER_PORT, 10),
             strictPort: true,
             cors: true,
             hmr: {
                 host: env.VITE_DEV_SERVER_HOST || 'localhost',
-                port: 5173,
+                port: parseInt(env.VITE_DEV_SERVER_PORT, 10),
             },
         },
 
